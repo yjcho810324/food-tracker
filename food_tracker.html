@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>식단 기록</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F7F5; --card: #FFFFFF; --border: #E8E8E4;
+    --text: #1A1A1A; --sub: #888880; --accent: #2D6A4F;
+    --accent-light: #E8F5EE; --warn: #E07A3A; --warn-light: #FEF3EA;
+    --radius: 14px; --font: -apple-system, sans-serif;
+  }
+  body { background: var(--bg); font-family: var(--font); color: var(--text); min-height: 100vh; padding-bottom: 40px; }
+
+  /* Setup screen */
+  .setup-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  .setup-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 400px; }
+  .setup-card h1 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .setup-card p { font-size: 14px; color: var(--sub); margin-bottom: 20px; line-height: 1.6; }
+  .setup-field { margin-bottom: 14px; }
+  .setup-field label { font-size: 13px; font-weight: 600; color: var(--sub); display: block; margin-bottom: 6px; }
+  .setup-field input { width: 100%; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: var(--font); color: var(--text); background: var(--bg); outline: none; }
+  .setup-field input:focus { border-color: var(--accent); }
+  .btn-setup { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 6px; }
+
+  /* Main app */
+  .app-screen { display: none; }
+  .header { background: var(--accent); padding: 20px 20px 16px; position: sticky; top: 0; z-index: 10; }
+  .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .header h1 { color: #fff; font-size: 18px; font-weight: 600; }
+  .header-date { color: rgba(255,255,255,0.7); font-size: 13px; }
+  .daily-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .daily-item { background: rgba(255,255,255,0.15); border-radius: 10px; padding: 8px 6px; text-align: center; }
+  .daily-item .val { color: #fff; font-size: 15px; font-weight: 600; }
+  .daily-item .lbl { color: rgba(255,255,255,0.65); font-size: 10px; margin-top: 2px; }
+  .daily-item .bar-wrap { height: 3px; background: rgba(255,255,255,0.2); border-radius: 2px; margin-top: 5px; }
+  .daily-item .bar-fill { height: 100%; border-radius: 2px; background: #fff; transition: width 0.4s; }
+
+  .content { padding: 16px; }
+  .input-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  .input-card h2 { font-size: 14px; font-weight: 600; color: var(--sub); margin-bottom: 12px; }
+  .meal-select { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+  .meal-btn { padding: 6px 12px; border-radius: 20px; border: 1.5px solid var(--border); background: transparent; font-size: 13px; color: var(--sub); cursor: pointer; transition: all 0.15s; }
+  .meal-btn.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); font-weight: 600; }
+  textarea { width: 100%; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px; font-size: 15px; font-family: var(--font); resize: none; min-height: 80px; color: var(--text); background: var(--bg); outline: none; transition: border-color 0.15s; }
+  textarea:focus { border-color: var(--accent); }
+  .input-actions { display: flex; gap: 8px; margin-top: 10px; }
+  .btn-photo { display: flex; align-items: center; gap: 6px; padding: 10px 14px; border-radius: 10px; border: 1.5px solid var(--border); background: var(--card); font-size: 14px; color: var(--sub); cursor: pointer; flex: 1; justify-content: center; }
+  .btn-submit { padding: 10px 20px; border-radius: 10px; border: none; background: var(--accent); color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; flex: 2; transition: opacity 0.15s; }
+  .btn-submit:disabled { opacity: 0.5; }
+  #photo-preview { margin-top: 10px; border-radius: 10px; overflow: hidden; display: none; }
+  #photo-preview img { width: 100%; max-height: 180px; object-fit: cover; }
+
+  .loading { display: none; text-align: center; padding: 20px; color: var(--sub); font-size: 14px; }
+  .spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 8px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .result-card { background: var(--accent-light); border: 1.5px solid var(--accent); border-radius: var(--radius); padding: 14px; margin-top: 10px; display: none; }
+  .result-card h3 { font-size: 15px; font-weight: 600; color: var(--accent); margin-bottom: 10px; }
+  .nutrition-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+  .nutr-item { text-align: center; }
+  .nutr-item .n-val { font-size: 16px; font-weight: 700; color: var(--text); }
+  .nutr-item .n-lbl { font-size: 11px; color: var(--sub); margin-top: 2px; }
+  .gi-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 600; margin-bottom: 8px; }
+  .gi-low { background: #E8F5EE; color: #2D6A4F; }
+  .gi-mid { background: #FEF3EA; color: #E07A3A; }
+  .gi-high { background: #FDEDED; color: #C0392B; }
+  .result-tip { font-size: 13px; color: var(--sub); line-height: 1.5; }
+
+  .section-title { font-size: 13px; font-weight: 600; color: var(--sub); letter-spacing: 0.5px; margin-bottom: 10px; }
+  .log-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+  .log-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+  .log-name { font-size: 15px; font-weight: 600; }
+  .log-time { font-size: 12px; color: var(--sub); }
+  .log-meal-tag { font-size: 11px; padding: 2px 8px; border-radius: 10px; background: var(--accent-light); color: var(--accent); font-weight: 600; }
+  .log-nutrients { display: flex; gap: 12px; font-size: 12px; color: var(--sub); flex-wrap: wrap; }
+  .log-nutrients span strong { color: var(--text); font-weight: 600; }
+
+  .analysis-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  .analysis-card h2 { font-size: 14px; font-weight: 600; margin-bottom: 12px; }
+  .nutr-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; }
+  .nutr-row .nr-label { font-size: 13px; color: var(--sub); width: 60px; flex-shrink: 0; }
+  .nutr-row .nr-bar { flex: 1; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+  .nutr-row .nr-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+  .nutr-row .nr-val { font-size: 12px; color: var(--sub); width: 75px; text-align: right; flex-shrink: 0; }
+  .shortage-list { margin-top: 12px; }
+  .shortage-item { display: flex; align-items: center; gap: 8px; padding: 8px 10px; background: var(--warn-light); border-radius: 8px; margin-bottom: 6px; font-size: 13px; color: var(--warn); }
+  .empty-state { text-align: center; padding: 30px; color: var(--sub); font-size: 14px; }
+  #file-input { display: none; }
+
+  .reset-btn { font-size: 12px; color: rgba(255,255,255,0.5); background: none; border: none; cursor: pointer; text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<!-- 최초 설정 화면 -->
+<div class="setup-screen" id="setup-screen">
+  <div class="setup-card">
+    <h1>🥗 식단 기록 앱</h1>
+    <p>처음 한 번만 설정하면 이후엔 자동으로 연결돼요. API 키는 이 기기에만 저장되며 외부로 전송되지 않아요.</p>
+    <div class="setup-field">
+      <label>Anthropic API Key</label>
+      <input type="password" id="input-api-key" placeholder="sk-ant-api03-...">
+    </div>
+    <div class="setup-field">
+      <label>Notion Token</label>
+      <input type="password" id="input-notion-token" placeholder="ntn_...">
+    </div>
+    <div class="setup-field">
+      <label>Notion DB ID</label>
+      <input type="text" id="input-notion-db" placeholder="39528a50...">
+    </div>
+    <button class="btn-setup" onclick="saveSetup()">시작하기</button>
+  </div>
+</div>
+
+<!-- 메인 앱 -->
+<div class="app-screen" id="app-screen">
+  <div class="header">
+    <div class="header-top">
+      <h1>🥗 오늘의 식단</h1>
+      <button class="reset-btn" onclick="resetSetup()">설정 초기화</button>
+    </div>
+    <div class="header-date" id="today-date"></div>
+    <div class="daily-bar" style="margin-top:10px">
+      <div class="daily-item">
+        <div class="val" id="total-kcal">0</div>
+        <div class="lbl">kcal</div>
+        <div class="bar-wrap"><div class="bar-fill" id="bar-kcal" style="width:0%"></div></div>
+      </div>
+      <div class="daily-item">
+        <div class="val" id="total-carb">0g</div>
+        <div class="lbl">탄수화물</div>
+        <div class="bar-wrap"><div class="bar-fill" id="bar-carb" style="width:0%"></div></div>
+      </div>
+      <div class="daily-item">
+        <div class="val" id="total-protein">0g</div>
+        <div class="lbl">단백질</div>
+        <div class="bar-wrap"><div class="bar-fill" id="bar-protein" style="width:0%"></div></div>
+      </div>
+      <div class="daily-item">
+        <div class="val" id="total-fat">0g</div>
+        <div class="lbl">지방</div>
+        <div class="bar-wrap"><div class="bar-fill" id="bar-fat" style="width:0%"></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="content">
+    <div class="input-card">
+      <h2>지금 먹은 것 기록</h2>
+      <div class="meal-select">
+        <button class="meal-btn active" onclick="selectMeal(this, '아침')">🌅 아침</button>
+        <button class="meal-btn" onclick="selectMeal(this, '점심')">☀️ 점심</button>
+        <button class="meal-btn" onclick="selectMeal(this, '저녁')">🌙 저녁</button>
+        <button class="meal-btn" onclick="selectMeal(this, '간식')">🍎 간식</button>
+      </div>
+      <textarea id="food-input" placeholder="예: 현미밥 1공기, 된장찌개, 삼겹살 200g&#10;또는 사진을 첨부해주세요"></textarea>
+      <div id="photo-preview"><img id="preview-img" src="" alt=""></div>
+      <div class="input-actions">
+        <button class="btn-photo" onclick="document.getElementById('file-input').click()">📷 사진 첨부</button>
+        <button class="btn-submit" id="submit-btn" onclick="submitFood()">분석 + 저장</button>
+      </div>
+      <input type="file" id="file-input" accept="image/*" capture="environment" onchange="handlePhoto(this)">
+    </div>
+
+    <div class="loading" id="loading">
+      <div class="spinner"></div>
+      Claude가 영양소를 분석하고 있어요...
+    </div>
+
+    <div class="result-card" id="result-card">
+      <h3 id="result-name"></h3>
+      <div class="nutrition-grid">
+        <div class="nutr-item"><div class="n-val" id="r-kcal">-</div><div class="n-lbl">칼로리</div></div>
+        <div class="nutr-item"><div class="n-val" id="r-carb">-</div><div class="n-lbl">탄수화물</div></div>
+        <div class="nutr-item"><div class="n-val" id="r-protein">-</div><div class="n-lbl">단백질</div></div>
+        <div class="nutr-item"><div class="n-val" id="r-fat">-</div><div class="n-lbl">지방</div></div>
+        <div class="nutr-item"><div class="n-val" id="r-fiber">-</div><div class="n-lbl">식이섬유</div></div>
+        <div class="nutr-item"><div class="n-val" id="r-sodium">-</div><div class="n-lbl">나트륨</div></div>
+      </div>
+      <span class="gi-badge" id="r-gi-badge"></span>
+      <div class="result-tip" id="r-tip"></div>
+    </div>
+
+    <div class="section-title" style="margin-top:8px">오늘 기록</div>
+    <div id="log-list">
+      <div class="empty-state">아직 기록이 없어요.<br>지금 먹은 것을 기록해보세요!</div>
+    </div>
+
+    <div class="analysis-card" id="analysis-card" style="display:none">
+      <h2>📊 오늘 영양 현황</h2>
+      <div class="nutr-row">
+        <span class="nr-label">칼로리</span>
+        <div class="nr-bar"><div class="nr-fill" id="fill-kcal" style="background:#2D6A4F;width:0%"></div></div>
+        <span class="nr-val" id="text-kcal">0/2200kcal</span>
+      </div>
+      <div class="nutr-row">
+        <span class="nr-label">탄수화물</span>
+        <div class="nr-bar"><div class="nr-fill" id="fill-carb" style="background:#4A90D9;width:0%"></div></div>
+        <span class="nr-val" id="text-carb">0/300g</span>
+      </div>
+      <div class="nutr-row">
+        <span class="nr-label">단백질</span>
+        <div class="nr-bar"><div class="nr-fill" id="fill-protein" style="background:#E07A3A;width:0%"></div></div>
+        <span class="nr-val" id="text-protein">0/70g</span>
+      </div>
+      <div class="nutr-row">
+        <span class="nr-label">지방</span>
+        <div class="nr-bar"><div class="nr-fill" id="fill-fat" style="background:#9B59B6;width:0%"></div></div>
+        <span class="nr-val" id="text-fat">0/60g</span>
+      </div>
+      <div class="nutr-row">
+        <span class="nr-label">식이섬유</span>
+        <div class="nr-bar"><div class="nr-fill" id="fill-fiber" style="background:#27AE60;width:0%"></div></div>
+        <span class="nr-val" id="text-fiber">0/25g</span>
+      </div>
+      <div class="shortage-list" id="shortage-list"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const DAILY_GOALS = { kcal: 2200, carb: 300, protein: 70, fat: 60, fiber: 25, sodium: 2000 };
+let selectedMeal = "아침";
+let photoBase64 = null;
+let photoType = null;
+
+function getToday() { return new Date().toISOString().split("T")[0]; }
+function getTodayKo() { const d = new Date(); return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`; }
+function getTime() { const d = new Date(); return `${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}`; }
+function getLogs() { return JSON.parse(localStorage.getItem("food_logs_" + getToday()) || "[]"); }
+function saveLogs(logs) { localStorage.setItem("food_logs_" + getToday(), JSON.stringify(logs)); }
+
+// Setup
+function saveSetup() {
+  const apiKey = document.getElementById("input-api-key").value.trim();
+  const notionToken = document.getElementById("input-notion-token").value.trim();
+  const notionDb = document.getElementById("input-notion-db").value.trim();
+  if (!apiKey || !notionToken || !notionDb) { alert("모든 항목을 입력해주세요."); return; }
+  localStorage.setItem("ANTHROPIC_API_KEY", apiKey);
+  localStorage.setItem("NOTION_TOKEN", notionToken);
+  localStorage.setItem("NOTION_DB_ID", notionDb);
+  showApp();
+}
+
+function resetSetup() {
+  if (!confirm("설정을 초기화할까요?")) return;
+  localStorage.removeItem("ANTHROPIC_API_KEY");
+  localStorage.removeItem("NOTION_TOKEN");
+  localStorage.removeItem("NOTION_DB_ID");
+  location.reload();
+}
+
+function showApp() {
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("app-screen").style.display = "block";
+  document.getElementById("today-date").textContent = getTodayKo();
+  updateDailySummary(); renderLogs(); renderAnalysis();
+}
+
+// Init
+window.onload = () => {
+  if (localStorage.getItem("ANTHROPIC_API_KEY")) {
+    showApp();
+  }
+};
+
+function selectMeal(btn, meal) {
+  document.querySelectorAll(".meal-btn").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
+  selectedMeal = meal;
+}
+
+function handlePhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    photoBase64 = e.target.result.split(",")[1];
+    photoType = file.type;
+    document.getElementById("preview-img").src = e.target.result;
+    document.getElementById("photo-preview").style.display = "block";
+  };
+  reader.readAsDataURL(file);
+}
+
+async function submitFood() {
+  const text = document.getElementById("food-input").value.trim();
+  if (!text && !photoBase64) { alert("음식 이름을 입력하거나 사진을 첨부해주세요."); return; }
+  document.getElementById("submit-btn").disabled = true;
+  document.getElementById("loading").style.display = "block";
+  document.getElementById("result-card").style.display = "none";
+  try {
+    const data = await analyzeFood(text, photoBase64, photoType);
+    displayResult(data);
+    const logs = getLogs();
+    logs.push({ ...data, meal: selectedMeal, time: getTime(), date: getToday() });
+    saveLogs(logs);
+    await saveToNotion(data);
+    updateDailySummary(); renderLogs(); renderAnalysis();
+    document.getElementById("food-input").value = "";
+    document.getElementById("photo-preview").style.display = "none";
+    photoBase64 = null; photoType = null;
+  } catch(e) {
+    alert("분석 중 오류가 발생했어요.\n" + e.message);
+  } finally {
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("submit-btn").disabled = false;
+  }
+}
+
+async function analyzeFood(text, photo, pType) {
+  const ANTHROPIC_API_KEY = localStorage.getItem("ANTHROPIC_API_KEY");
+  const content = [];
+  if (photo) content.push({ type: "image", source: { type: "base64", media_type: pType, data: photo } });
+  content.push({ type: "text", text: `음식 영양소를 분석해줘. ${text ? "음식: " + text : "첨부된 사진의 음식을 분석해줘."}
+아래 JSON만 반환해. 설명 없이.
+{"name":"음식명","kcal":숫자,"carb":숫자,"protein":숫자,"fat":숫자,"fiber":숫자,"sodium":숫자,"gi":"낮음|보통|높음","gi_score":숫자,"tip":"혈당 관리 관점 한줄 조언(한국어)"}` });
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
+    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 500, messages: [{ role: "user", content }] })
+  });
+  const json = await res.json();
+  return JSON.parse(json.content[0].text.replace(/```json|```/g, "").trim());
+}
+
+function displayResult(d) {
+  document.getElementById("result-name").textContent = d.name;
+  document.getElementById("r-kcal").textContent = d.kcal + " kcal";
+  document.getElementById("r-carb").textContent = d.carb + "g";
+  document.getElementById("r-protein").textContent = d.protein + "g";
+  document.getElementById("r-fat").textContent = d.fat + "g";
+  document.getElementById("r-fiber").textContent = d.fiber + "g";
+  document.getElementById("r-sodium").textContent = d.sodium + "mg";
+  document.getElementById("r-tip").textContent = d.tip;
+  const badge = document.getElementById("r-gi-badge");
+  badge.textContent = `혈당지수 ${d.gi} (${d.gi_score})`;
+  badge.className = "gi-badge " + (d.gi === "낮음" ? "gi-low" : d.gi === "보통" ? "gi-mid" : "gi-high");
+  document.getElementById("result-card").style.display = "block";
+}
+
+async function saveToNotion(d) {
+  const NOTION_TOKEN = localStorage.getItem("NOTION_TOKEN");
+  const NOTION_DB_ID = localStorage.getItem("NOTION_DB_ID");
+  const body = {
+    parent: { database_id: NOTION_DB_ID },
+    properties: {
+      "식품명": { title: [{ text: { content: d.name } }] },
+      "칼로리": { number: d.kcal },
+      "탄수화물": { number: d.carb },
+      "단백질": { number: d.protein },
+      "지방": { number: d.fat },
+      "식이섬유": { number: d.fiber },
+      "나트륨": { number: d.sodium },
+      "혈당": { select: { name: d.gi } },
+      "식사구분": { select: { name: selectedMeal } },
+      "메모": { rich_text: [{ text: { content: d.tip } }] },
+      "날짜": { date: { start: getToday() } }
+    }
+  };
+  await fetch("https://api.notion.com/v1/pages", {
+    method: "POST",
+    headers: { "Authorization": `Bearer ${NOTION_TOKEN}`, "Content-Type": "application/json", "Notion-Version": "2022-06-28" },
+    body: JSON.stringify(body)
+  });
+}
+
+function getTotals() {
+  return getLogs().reduce((acc, l) => {
+    acc.kcal += l.kcal||0; acc.carb += l.carb||0; acc.protein += l.protein||0;
+    acc.fat += l.fat||0; acc.fiber += l.fiber||0; acc.sodium += l.sodium||0;
+    return acc;
+  }, { kcal:0, carb:0, protein:0, fat:0, fiber:0, sodium:0 });
+}
+
+function updateDailySummary() {
+  const t = getTotals();
+  document.getElementById("total-kcal").textContent = Math.round(t.kcal);
+  document.getElementById("total-carb").textContent = Math.round(t.carb) + "g";
+  document.getElementById("total-protein").textContent = Math.round(t.protein) + "g";
+  document.getElementById("total-fat").textContent = Math.round(t.fat) + "g";
+  document.getElementById("bar-kcal").style.width = Math.min(100, t.kcal/DAILY_GOALS.kcal*100) + "%";
+  document.getElementById("bar-carb").style.width = Math.min(100, t.carb/DAILY_GOALS.carb*100) + "%";
+  document.getElementById("bar-protein").style.width = Math.min(100, t.protein/DAILY_GOALS.protein*100) + "%";
+  document.getElementById("bar-fat").style.width = Math.min(100, t.fat/DAILY_GOALS.fat*100) + "%";
+}
+
+function renderLogs() {
+  const logs = getLogs();
+  const container = document.getElementById("log-list");
+  if (logs.length === 0) { container.innerHTML = '<div class="empty-state">아직 기록이 없어요.<br>지금 먹은 것을 기록해보세요!</div>'; return; }
+  container.innerHTML = [...logs].reverse().map(l => `
+    <div class="log-item">
+      <div class="log-header">
+        <div><span class="log-meal-tag">${l.meal}</span><div class="log-name" style="margin-top:6px">${l.name}</div></div>
+        <span class="log-time">${l.time}</span>
+      </div>
+      <div class="log-nutrients">
+        <span><strong>${l.kcal}</strong> kcal</span>
+        <span>탄 <strong>${l.carb}g</strong></span>
+        <span>단 <strong>${l.protein}g</strong></span>
+        <span>지 <strong>${l.fat}g</strong></span>
+        <span>혈당 <strong>${l.gi}</strong></span>
+      </div>
+    </div>`).join("");
+}
+
+function renderAnalysis() {
+  const logs = getLogs();
+  if (logs.length === 0) return;
+  document.getElementById("analysis-card").style.display = "block";
+  const t = getTotals();
+  const fields = [
+    {id:"kcal",goal:2200,unit:"kcal",label:"칼로리"},
+    {id:"carb",goal:300,unit:"g",label:"탄수화물"},
+    {id:"protein",goal:70,unit:"g",label:"단백질"},
+    {id:"fat",goal:60,unit:"g",label:"지방"},
+    {id:"fiber",goal:25,unit:"g",label:"식이섬유"}
+  ];
+  fields.forEach(f => {
+    document.getElementById("fill-"+f.id).style.width = Math.min(100, Math.round(t[f.id]/f.goal*100)) + "%";
+    document.getElementById("text-"+f.id).textContent = `${Math.round(t[f.id])}/${f.goal}${f.unit}`;
+  });
+  const shortages = fields.filter(f => t[f.id] < f.goal * 0.6);
+  document.getElementById("shortage-list").innerHTML = shortages.length > 0
+    ? "<div style='font-size:13px;font-weight:600;margin-bottom:6px'>⚠️ 부족한 영양소</div>" +
+      shortages.map(f => `<div class="shortage-item">⬇ ${f.label} ${Math.round(t[f.id])}${f.unit} / 목표 ${f.goal}${f.unit}</div>`).join("")
+    : "<div style='color:#2D6A4F;font-size:13px;font-weight:600;margin-top:8px'>✅ 오늘 영양소 균형이 좋아요!</div>";
+}
+</script>
+</body>
+</html>
