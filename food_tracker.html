@@ -319,12 +319,13 @@ async function analyzeFood(text, photo, pType) {
   content.push({ type: "text", text: `음식 영양소를 분석해줘. ${text ? "음식: " + text : "첨부된 사진의 음식을 분석해줘."}
 아래 JSON만 반환해. 설명 없이.
 {"name":"음식명","kcal":숫자,"carb":숫자,"protein":숫자,"fat":숫자,"fiber":숫자,"sodium":숫자,"gi":"낮음|보통|높음","gi_score":숫자,"tip":"혈당 관리 관점 한줄 조언(한국어)"}` });
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
+  const res = await fetch("https://anthropic-proxy-worker.yjcho0324.workers.dev/analyze", {
     method: "POST",
-    headers: { "Content-Type": "application/json", "x-api-key": ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01" },
-    body: JSON.stringify({ model: "claude-sonnet-4-6", max_tokens: 500, messages: [{ role: "user", content }] })
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ apiKey: ANTHROPIC_API_KEY, model: "claude-sonnet-4-6", max_tokens: 500, messages: [{ role: "user", content }] })
   });
   const json = await res.json();
+  if (!res.ok) throw new Error(json.error || "분석 요청이 실패했습니다.");
   return JSON.parse(json.content[0].text.replace(/```json|```/g, "").trim());
 }
 
