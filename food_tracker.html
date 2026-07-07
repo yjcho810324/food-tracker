@@ -520,7 +520,7 @@ async function submitFood() {
   }
 }
 
-async function analyzeFood(text, photo, pType) {
+async function analyzeFood(text, photo, pType, retriesLeft = 2) {
   const ANTHROPIC_API_KEY = localStorage.getItem("ANTHROPIC_API_KEY");
   const content = [];
   if (photo) content.push({ type: "image", source: { type: "base64", media_type: pType, data: photo } });
@@ -530,11 +530,16 @@ async function analyzeFood(text, photo, pType) {
   const res = await fetch("https://anthropic-proxy-worker.yjcho0324.workers.dev/analyze", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ apiKey: ANTHROPIC_API_KEY, model: "claude-sonnet-4-6", max_tokens: 500, messages: [{ role: "user", content }] })
+    body: JSON.stringify({ apiKey: ANTHROPIC_API_KEY, model: "claude-sonnet-4-6", max_tokens: 1024, messages: [{ role: "user", content }] })
   });
   const json = await res.json();
   if (!res.ok) throw new Error(getApiErrorMessage(json, "분석 요청이 실패했습니다."));
-  return JSON.parse(json.content[0].text.replace(/```json|```/g, "").trim());
+  try {
+    return JSON.parse(json.content[0].text.replace(/```json|```/g, "").trim());
+  } catch (e) {
+    if (retriesLeft > 0) return analyzeFood(text, photo, pType, retriesLeft - 1);
+    throw new Error("분석 결과를 해석하지 못했어요. 다시 시도해주세요.");
+  }
 }
 
 function displayResult(d) {
