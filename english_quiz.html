@@ -374,8 +374,7 @@ async function fetchExpressions() {
   const from = new Date();
   from.setDate(from.getDate() - 6);
   const body = {
-    filter: { property: "Date", date: { on_or_after: formatDate(from) } },
-    sorts: [{ property: "Date", direction: "descending" }],
+    filter: { property: "날짜", date: { on_or_after: formatDate(from) } },
     page_size: 50,
   };
   const res = await fetch(WORKER_BASE + "/notion", {
