@@ -365,6 +365,17 @@ function showToast(message, type = "error") {
   toastTimer = setTimeout(() => { toast.className = "toast"; }, 3000);
 }
 
+// API 에러 응답은 { message }, { error }, { error: { message } } 등 형태가 제각각이라
+// 문자열이 아닌 값을 그대로 new Error()에 넘기면 "[object Object]"가 표시된다.
+function getApiErrorMessage(payload, fallback) {
+  if (!payload) return fallback;
+  if (typeof payload === "string") return payload;
+  if (typeof payload.message === "string") return payload.message;
+  if (typeof payload.error === "string") return payload.error;
+  if (payload.error && typeof payload.error.message === "string") return payload.error.message;
+  return fallback;
+}
+
 // ---------- Date / storage helpers ----------
 function pad(n) { return String(n).padStart(2, "0"); }
 function formatDate(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
@@ -522,7 +533,7 @@ async function analyzeFood(text, photo, pType) {
     body: JSON.stringify({ apiKey: ANTHROPIC_API_KEY, model: "claude-sonnet-4-6", max_tokens: 500, messages: [{ role: "user", content }] })
   });
   const json = await res.json();
-  if (!res.ok) throw new Error(json.error || "분석 요청이 실패했습니다.");
+  if (!res.ok) throw new Error(getApiErrorMessage(json, "분석 요청이 실패했습니다."));
   return JSON.parse(json.content[0].text.replace(/```json|```/g, "").trim());
 }
 
@@ -568,7 +579,7 @@ async function saveToNotion(d) {
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.message || `Notion 응답 오류 (${res.status})`);
+      throw new Error(getApiErrorMessage(err, `Notion 응답 오류 (${res.status})`));
     }
   } catch (e) {
     showToast("Notion 저장 실패: 기록은 앱에 저장됐어요. (" + e.message + ")");
