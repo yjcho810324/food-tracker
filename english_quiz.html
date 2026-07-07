@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>영어 표현 퀴즈</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #F7F7F5; --card: #FFFFFF; --border: #E8E8E4;
+    --text: #1A1A1A; --sub: #888880; --accent: #2D6A4F;
+    --accent-light: #E8F5EE; --warn: #E07A3A; --warn-light: #FEF3EA;
+    --danger: #C0392B; --danger-light: rgba(192,57,43,0.12);
+    --radius: 14px; --font: -apple-system, sans-serif;
+  }
+  html[data-theme="dark"] {
+    --bg: #131517; --card: #1D2023; --border: #2C3034;
+    --text: #F1F1EE; --sub: #93979B; --accent: #4CAF7D;
+    --accent-light: rgba(76,175,125,0.16); --warn: #F0955A; --warn-light: rgba(240,149,90,0.16);
+    --danger: #FF6B5B; --danger-light: rgba(255,107,91,0.16);
+  }
+  html, body { background: var(--bg); }
+  body { font-family: var(--font); color: var(--text); min-height: 100vh; transition: background 0.2s, color 0.2s; }
+  .app-container { max-width: 480px; margin: 0 auto; min-height: 100vh; }
+
+  /* Setup screen */
+  .setup-screen { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+  .setup-card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 28px; width: 100%; max-width: 400px; }
+  .setup-card h1 { font-size: 20px; font-weight: 700; margin-bottom: 6px; }
+  .setup-card p { font-size: 14px; color: var(--sub); margin-bottom: 20px; line-height: 1.6; }
+  .setup-field { margin-bottom: 14px; }
+  .setup-field label { font-size: 13px; font-weight: 600; color: var(--sub); display: block; margin-bottom: 6px; }
+  .setup-field input { width: 100%; border: 1.5px solid var(--border); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-family: var(--font); color: var(--text); background: var(--bg); outline: none; }
+  .setup-field input:focus { border-color: var(--accent); }
+  .btn-setup { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 6px; }
+  .btn-setup:disabled { opacity: 0.5; }
+
+  /* Main app */
+  .app-screen { display: none; }
+  .top-bar { background: var(--accent); padding: 18px 20px 16px; position: sticky; top: 0; z-index: 10; }
+  .top-bar-title { color: #fff; font-size: 18px; font-weight: 700; }
+
+  .tab-view { display: none; padding: 16px; padding-bottom: 90px; }
+  .tab-view.active { display: block; }
+
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 16px; font-weight: 700; margin-bottom: 8px; }
+  .card p { font-size: 13px; color: var(--sub); line-height: 1.6; margin-bottom: 14px; }
+
+  textarea { width: 100%; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px; font-size: 15px; font-family: var(--font); resize: none; min-height: 64px; color: var(--text); background: var(--bg); outline: none; transition: border-color 0.15s; }
+  textarea:focus { border-color: var(--accent); }
+
+  .loading { display: none; text-align: center; padding: 30px 20px; color: var(--sub); font-size: 14px; }
+  .spinner { width: 24px; height: 24px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; margin: 0 auto 10px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty-state { text-align: center; padding: 30px; color: var(--sub); font-size: 14px; line-height: 1.6; }
+
+  .tag { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 10px; background: var(--accent-light); color: var(--accent); font-weight: 600; margin-bottom: 10px; }
+  .quiz-progress { font-size: 12px; color: var(--sub); font-weight: 600; margin-bottom: 10px; }
+  .quiz-meaning { font-size: 16px; font-weight: 700; line-height: 1.55; margin-bottom: 10px; }
+  .quiz-situation { font-size: 13px; color: var(--sub); line-height: 1.65; white-space: pre-wrap; background: var(--bg); border-radius: 10px; padding: 12px; max-height: 220px; overflow-y: auto; }
+
+  .field-label { font-size: 13px; font-weight: 600; color: var(--sub); display: block; margin-bottom: 8px; }
+  .btn-submit-full { width: 100%; padding: 12px; border-radius: 10px; border: none; background: var(--accent); color: #fff; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 12px; }
+  .btn-submit-full:disabled { opacity: 0.5; }
+
+  .feedback-badge { font-size: 17px; font-weight: 700; margin-bottom: 12px; }
+  .feedback-correct { color: var(--accent); }
+  .feedback-wrong { color: var(--danger); }
+  .feedback-answer { font-size: 14px; margin-bottom: 10px; line-height: 1.5; }
+  .feedback-answer strong { color: var(--accent); }
+  .feedback-explain { font-size: 13px; color: var(--sub); background: var(--warn-light); border-radius: 10px; padding: 10px 12px; margin-bottom: 14px; line-height: 1.5; }
+
+  .result-summary-card { text-align: center; padding: 30px 16px; }
+  .result-score { font-size: 38px; font-weight: 800; color: var(--accent); }
+  .result-score-label { font-size: 14px; color: var(--sub); margin-top: 6px; }
+
+  .review-item { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+  .review-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 8px; }
+  .review-name { font-size: 15px; font-weight: 600; }
+  .review-result { font-size: 12px; font-weight: 700; flex-shrink: 0; }
+  .review-detail { font-size: 13px; color: var(--sub); line-height: 1.5; }
+
+  .result-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+  .btn-outline { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid var(--border); background: transparent; color: var(--sub); font-size: 14px; font-weight: 600; cursor: pointer; }
+
+  /* Bottom nav */
+  .bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; margin: 0 auto; max-width: 480px; background: var(--card); border-top: 1px solid var(--border); display: none; z-index: 50; }
+  .nav-btn { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 0 8px; background: none; border: none; color: var(--sub); font-size: 11px; cursor: pointer; }
+  .nav-btn.active { color: var(--accent); font-weight: 700; }
+  .nav-icon { font-size: 19px; }
+
+  /* Settings */
+  .settings-row { display: flex; justify-content: space-between; align-items: center; }
+  .switch { position: relative; display: inline-block; width: 44px; height: 24px; flex-shrink: 0; }
+  .switch input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; cursor: pointer; inset: 0; background: var(--border); border-radius: 24px; transition: 0.2s; }
+  .slider::before { content: ""; position: absolute; width: 18px; height: 18px; left: 3px; bottom: 3px; background: #fff; border-radius: 50%; transition: 0.2s; }
+  .switch input:checked + .slider { background: var(--accent); }
+  .switch input:checked + .slider::before { transform: translateX(20px); }
+  .btn-danger-outline { width: 100%; padding: 12px; border-radius: 10px; border: 1.5px solid var(--danger); background: transparent; color: var(--danger); font-size: 14px; font-weight: 600; cursor: pointer; }
+
+  .toast {
+    position: fixed; bottom: 84px; left: 50%; transform: translateX(-50%) translateY(12px);
+    background: #333; color: #fff; padding: 8px 16px; border-radius: 20px; font-size: 12px;
+    opacity: 0; pointer-events: none; transition: opacity 0.2s ease, transform 0.2s ease;
+    z-index: 100; max-width: 90%; text-align: center; box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast.toast-error { background: var(--danger); }
+  .toast.toast-success { background: var(--accent); }
+</style>
+</head>
+<body>
+
+<div class="app-container">
+
+<!-- 최초 설정 화면 -->
+<div class="setup-screen" id="setup-screen">
+  <div class="setup-card">
+    <h1>📝 영어 표현 퀴즈</h1>
+    <p>Notion "영어 표현 모음" DB와 연결해서 최근 7일간 배운 표현으로 퀴즈를 풀어요. 토큰은 이 기기에만 저장되며 외부로 전송되지 않아요.</p>
+    <div class="setup-field">
+      <label>Notion Token</label>
+      <input type="password" id="input-notion-token" placeholder="ntn_...">
+    </div>
+    <div class="setup-field" style="margin-bottom:0">
+      <label>Notion DB ID</label>
+      <input type="text" id="input-notion-db" placeholder="39528a50...">
+    </div>
+    <button class="btn-setup" onclick="saveSetup()">시작하기</button>
+  </div>
+</div>
+
+<!-- 메인 앱 -->
+<div class="app-screen" id="app-screen">
+  <div class="top-bar">
+    <div class="top-bar-title" id="top-bar-title">표현 퀴즈</div>
+  </div>
+
+  <!-- 퀴즈 탭 -->
+  <div class="tab-view active" id="tab-quiz">
+    <div class="card" id="quiz-start-card">
+      <h2>오늘의 표현 퀴즈</h2>
+      <p>지난 7일간 Notion에 등록된 표현 중 5개를 무작위로 출제해요. 한국어 의미와 상황을 보고 영어 표현을 맞혀보세요.</p>
+      <button class="btn-setup" onclick="startQuiz()">퀴즈 시작</button>
+    </div>
+
+    <div class="loading" id="quiz-loading">
+      <div class="spinner"></div>
+      표현을 불러오고 있어요...
+    </div>
+
+    <div class="card" id="quiz-empty" style="display:none">
+      <div class="empty-state">지난 7일간 등록된 표현이 없어요.<br>Notion에 표현을 추가한 뒤 다시 시도해주세요.</div>
+    </div>
+
+    <div id="quiz-question-view" style="display:none">
+      <div class="card">
+        <div class="quiz-progress">문제 <span id="q-index">1</span> / <span id="q-total">5</span></div>
+        <span class="tag" id="q-category"></span>
+        <div class="quiz-meaning" id="q-meaning"></div>
+        <div class="quiz-situation" id="q-situation"></div>
+      </div>
+      <div class="card">
+        <label class="field-label">영어 표현을 입력하세요</label>
+        <textarea id="q-answer-input" placeholder="영어로 입력해보세요"></textarea>
+        <button class="btn-submit-full" id="q-submit-btn" onclick="submitAnswer()">제출</button>
+      </div>
+      <div class="card" id="q-feedback" style="display:none">
+        <div class="feedback-badge" id="q-feedback-badge"></div>
+        <div class="feedback-answer">정답: <strong id="q-correct-answer"></strong></div>
+        <div class="feedback-explain" id="q-explain"></div>
+        <button class="btn-setup" id="q-next-btn" onclick="nextQuestion()">다음 문제</button>
+      </div>
+    </div>
+
+    <div id="quiz-results-view" style="display:none">
+      <div class="card result-summary-card">
+        <div class="result-score" id="result-score">0 / 0</div>
+        <div class="result-score-label" id="result-score-label">맞혔어요</div>
+      </div>
+      <div id="result-list"></div>
+      <div class="result-actions">
+        <button class="btn-setup" id="review-btn" onclick="startReview()" style="display:none">틀린 문제 다시 풀기</button>
+        <button class="btn-outline" onclick="resetQuizHome()">처음으로</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 설정 탭 -->
+  <div class="tab-view" id="tab-settings">
+    <div class="card">
+      <div class="section-title" style="font-size:13px;font-weight:600;color:var(--sub);margin-bottom:12px;">화면</div>
+      <div class="settings-row">
+        <span>다크 모드</span>
+        <label class="switch">
+          <input type="checkbox" id="theme-toggle" onchange="toggleTheme()">
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="section-title" style="font-size:13px;font-weight:600;color:var(--sub);margin-bottom:12px;">Notion 연결</div>
+      <div class="setup-field">
+        <label>Notion Token</label>
+        <input type="password" id="settings-notion-token" placeholder="ntn_...">
+      </div>
+      <div class="setup-field" style="margin-bottom:0">
+        <label>Notion DB ID</label>
+        <input type="text" id="settings-notion-db" placeholder="39528a50...">
+      </div>
+      <button class="btn-setup" onclick="saveSettings()">저장</button>
+    </div>
+
+    <div class="card">
+      <button class="btn-danger-outline" onclick="resetSetup()">설정 초기화</button>
+    </div>
+  </div>
+</div>
+
+<div class="bottom-nav" id="bottom-nav">
+  <button class="nav-btn active" data-tab="quiz" onclick="switchTab('quiz')"><span class="nav-icon">📝</span>퀴즈</button>
+  <button class="nav-btn" data-tab="settings" onclick="switchTab('settings')"><span class="nav-icon">⚙️</span>설정</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+</div>
+
+<script>
+const WORKER_BASE = "https://anthropic-proxy-worker.yjcho0324.workers.dev";
+const TAB_TITLES = { quiz: "표현 퀴즈", settings: "설정" };
+
+let currentTab = "quiz";
+let toastTimer = null;
+let session = null; // { questions, index, answers, isReview }
+
+// ---------- Theme ----------
+(function initTheme() {
+  const saved = localStorage.getItem("theme");
+  const prefersDark = window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches;
+  document.documentElement.setAttribute("data-theme", saved || (prefersDark ? "dark" : "light"));
+})();
+
+function toggleTheme() {
+  const isDark = document.getElementById("theme-toggle").checked;
+  document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+  localStorage.setItem("theme", isDark ? "dark" : "light");
+}
+
+// ---------- Toast ----------
+function showToast(message, type = "error") {
+  const toast = document.getElementById("toast");
+  toast.textContent = message;
+  toast.className = "toast show toast-" + type;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { toast.className = "toast"; }, 3000);
+}
+
+function getApiErrorMessage(payload, fallback) {
+  if (!payload) return fallback;
+  if (typeof payload === "string") return payload;
+  if (typeof payload.message === "string") return payload.message;
+  if (typeof payload.error === "string") return payload.error;
+  if (payload.error && typeof payload.error.message === "string") return payload.error.message;
+  return fallback;
+}
+
+function escapeHtml(str) {
+  const div = document.createElement("div");
+  div.textContent = str ?? "";
+  return div.innerHTML;
+}
+
+// ---------- Setup / onboarding ----------
+function saveSetup() {
+  const token = document.getElementById("input-notion-token").value.trim();
+  const dbId = document.getElementById("input-notion-db").value.trim();
+  if (!token || !dbId) { showToast("모든 항목을 입력해주세요."); return; }
+  localStorage.setItem("NOTION_TOKEN", token);
+  localStorage.setItem("NOTION_DB_ID", dbId);
+  showApp();
+}
+
+function resetSetup() {
+  if (!confirm("설정을 초기화할까요?")) return;
+  localStorage.removeItem("NOTION_TOKEN");
+  localStorage.removeItem("NOTION_DB_ID");
+  location.reload();
+}
+
+function showApp() {
+  document.getElementById("setup-screen").style.display = "none";
+  document.getElementById("app-screen").style.display = "block";
+  document.getElementById("bottom-nav").style.display = "flex";
+  switchTab("quiz");
+}
+
+window.onload = () => {
+  if (localStorage.getItem("NOTION_TOKEN") && localStorage.getItem("NOTION_DB_ID")) {
+    showApp();
+  }
+};
+
+// ---------- Tabs ----------
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll(".tab-view").forEach(v => v.classList.remove("active"));
+  document.getElementById("tab-" + tab).classList.add("active");
+  document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
+  document.getElementById("top-bar-title").textContent = TAB_TITLES[tab];
+  if (tab === "settings") renderSettings();
+}
+
+function renderSettings() {
+  document.getElementById("settings-notion-token").value = localStorage.getItem("NOTION_TOKEN") || "";
+  document.getElementById("settings-notion-db").value = localStorage.getItem("NOTION_DB_ID") || "";
+  document.getElementById("theme-toggle").checked = document.documentElement.getAttribute("data-theme") === "dark";
+}
+
+function saveSettings() {
+  const token = document.getElementById("settings-notion-token").value.trim();
+  const dbId = document.getElementById("settings-notion-db").value.trim();
+  if (!token || !dbId) { showToast("모든 항목을 입력해주세요."); return; }
+  localStorage.setItem("NOTION_TOKEN", token);
+  localStorage.setItem("NOTION_DB_ID", dbId);
+  showToast("설정이 저장됐어요.", "success");
+}
+
+// ---------- Notion 데이터 ----------
+function pad(n) { return String(n).padStart(2, "0"); }
+function formatDate(d) { return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`; }
+
+function buildSituationText(example, expression) {
+  let text = (example || "").replace(/<br\s*\/?>/gi, "\n").replace(/\\\[/g, "[").replace(/\\\]/g, "]");
+  const tipIdx = text.indexOf("🎯");
+  if (tipIdx !== -1) text = text.slice(0, tipIdx);
+  const core = (expression || "").replace(/\.\.\.$/, "").trim();
+  // 예문 안에서는 표현이 "It's X" -> "is X"처럼 문법에 맞게 변형되어 등장하는 경우가 많다.
+  // 전체 문구부터 시작해 앞 단어를 하나씩 지워가며(최소 2단어) 예문과 일치하는 가장 긴 부분을 찾아 가린다.
+  const words = core.split(/\s+/).filter(Boolean);
+  for (let start = 0; start <= words.length - 2; start++) {
+    const candidate = words.slice(start).join(" ");
+    const escaped = candidate.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const re = new RegExp(escaped + "(\\.\\.\\.)?", "gi");
+    if (re.test(text)) {
+      text = text.replace(re, "_____");
+      break;
+    }
+  }
+  return text.trim();
+}
+
+function parseExpressionPage(page) {
+  const props = page.properties || {};
+  const expression = (props.Expression?.title || []).map(t => t.plain_text).join("");
+  const meaning = (props.Meaning?.rich_text || []).map(t => t.plain_text).join("");
+  const example = (props.Example?.rich_text || []).map(t => t.plain_text).join("");
+  const category = props.Category?.select?.name || "표현";
+  return {
+    id: page.id,
+    expression: expression.trim(),
+    meaning: meaning.trim(),
+    situation: buildSituationText(example, expression),
+    category,
+  };
+}
+
+async function fetchExpressions() {
+  const token = localStorage.getItem("NOTION_TOKEN");
+  const dbId = localStorage.getItem("NOTION_DB_ID");
+  const from = new Date();
+  from.setDate(from.getDate() - 6);
+  const body = {
+    filter: { property: "Date", date: { on_or_after: formatDate(from) } },
+    sorts: [{ property: "Date", direction: "descending" }],
+    page_size: 50,
+  };
+  const res = await fetch(WORKER_BASE + "/notion", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ token, path: `/databases/${dbId}/query`, method: "POST", body }),
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(getApiErrorMessage(json, "표현을 불러오지 못했어요."));
+  return (json.results || []).map(parseExpressionPage).filter(q => q.expression);
+}
+
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// ---------- 채점 ----------
+function normalizeAnswer(s) {
+  return (s || "")
+    .toLowerCase()
+    .replace(/\.\.\./g, "")
+    .replace(/[.,!?…"'’‘]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function explainMistake(userAnswer, correct) {
+  const normUser = normalizeAnswer(userAnswer);
+  const normCorrect = normalizeAnswer(correct);
+  if (!normUser) return "답을 입력하지 않았어요. 정답 표현을 다시 확인해보세요.";
+  const correctWords = normCorrect.split(" ").filter(Boolean);
+  const userWords = new Set(normUser.split(" ").filter(Boolean));
+  const overlap = correctWords.filter(w => userWords.has(w)).length;
+  const ratio = correctWords.length ? overlap / correctWords.length : 0;
+  if (ratio >= 0.6) return "표현이 비슷하지만 정확한 형태와는 조금 달라요. 정답 표현의 단어 순서와 형태를 다시 확인해보세요.";
+  return "입력하신 표현이 정답과 많이 달라요. 정답 표현을 잘 기억해두세요.";
+}
+
+// ---------- 퀴즈 진행 ----------
+async function startQuiz() {
+  document.getElementById("quiz-start-card").style.display = "none";
+  document.getElementById("quiz-empty").style.display = "none";
+  document.getElementById("quiz-results-view").style.display = "none";
+  document.getElementById("quiz-loading").style.display = "block";
+  try {
+    const pool = await fetchExpressions();
+    document.getElementById("quiz-loading").style.display = "none";
+    if (pool.length === 0) {
+      document.getElementById("quiz-empty").style.display = "block";
+      return;
+    }
+    const picked = shuffle(pool).slice(0, Math.min(5, pool.length));
+    beginSession(picked, false);
+  } catch (e) {
+    document.getElementById("quiz-loading").style.display = "none";
+    document.getElementById("quiz-start-card").style.display = "block";
+    showToast(e.message);
+  }
+}
+
+function beginSession(questions, isReview) {
+  session = { questions, index: 0, answers: [], isReview };
+  document.getElementById("quiz-results-view").style.display = "none";
+  document.getElementById("quiz-question-view").style.display = "block";
+  renderQuestion();
+}
+
+function renderQuestion() {
+  const q = session.questions[session.index];
+  document.getElementById("q-index").textContent = session.index + 1;
+  document.getElementById("q-total").textContent = session.questions.length;
+  document.getElementById("q-category").textContent = q.category;
+  document.getElementById("q-meaning").textContent = q.meaning;
+  document.getElementById("q-situation").textContent = q.situation;
+  const input = document.getElementById("q-answer-input");
+  input.value = "";
+  input.disabled = false;
+  document.getElementById("q-submit-btn").style.display = "block";
+  document.getElementById("q-feedback").style.display = "none";
+}
+
+function submitAnswer() {
+  const q = session.questions[session.index];
+  const userAnswer = document.getElementById("q-answer-input").value.trim();
+  const correct = normalizeAnswer(userAnswer) === normalizeAnswer(q.expression);
+  const explanation = correct ? "" : explainMistake(userAnswer, q.expression);
+  session.answers.push({ question: q, userAnswer, correct, explanation });
+
+  document.getElementById("q-answer-input").disabled = true;
+  document.getElementById("q-submit-btn").style.display = "none";
+
+  const badge = document.getElementById("q-feedback-badge");
+  badge.textContent = correct ? "✅ 정답이에요!" : "❌ 아쉬워요";
+  badge.className = "feedback-badge " + (correct ? "feedback-correct" : "feedback-wrong");
+  document.getElementById("q-correct-answer").textContent = q.expression;
+  const explainEl = document.getElementById("q-explain");
+  explainEl.textContent = explanation;
+  explainEl.style.display = correct ? "none" : "block";
+  document.getElementById("q-next-btn").textContent = session.index === session.questions.length - 1 ? "결과 보기" : "다음 문제";
+  document.getElementById("q-feedback").style.display = "block";
+}
+
+function nextQuestion() {
+  session.index++;
+  if (session.index >= session.questions.length) {
+    showResults();
+  } else {
+    renderQuestion();
+  }
+}
+
+function showResults() {
+  document.getElementById("quiz-question-view").style.display = "none";
+  document.getElementById("quiz-results-view").style.display = "block";
+  const score = session.answers.filter(a => a.correct).length;
+  document.getElementById("result-score").textContent = `${score} / ${session.answers.length}`;
+  document.getElementById("result-score-label").textContent = session.isReview ? "복습 결과예요" : "맞혔어요";
+
+  document.getElementById("result-list").innerHTML = session.answers.map(a => `
+    <div class="review-item">
+      <div class="review-header">
+        <span class="review-name">${escapeHtml(a.question.expression)}</span>
+        <span class="review-result ${a.correct ? "feedback-correct" : "feedback-wrong"}">${a.correct ? "정답" : "오답"}</span>
+      </div>
+      ${a.correct ? "" : `<div class="review-detail">내 답: ${escapeHtml(a.userAnswer) || "(입력 안 함)"}</div>`}
+    </div>
+  `).join("");
+
+  const wrongCount = session.answers.filter(a => !a.correct).length;
+  document.getElementById("review-btn").style.display = wrongCount > 0 ? "block" : "none";
+}
+
+function startReview() {
+  const wrongQuestions = session.answers.filter(a => !a.correct).map(a => a.question);
+  beginSession(wrongQuestions, true);
+}
+
+function resetQuizHome() {
+  session = null;
+  document.getElementById("quiz-results-view").style.display = "none";
+  document.getElementById("quiz-question-view").style.display = "none";
+  document.getElementById("quiz-empty").style.display = "none";
+  document.getElementById("quiz-start-card").style.display = "block";
+}
+</script>
+</body>
+</html>
