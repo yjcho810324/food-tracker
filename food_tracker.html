@@ -127,6 +127,27 @@
   .bar-col { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; height: 100%; }
   .bar-col .bar { width: 100%; max-width: 18px; background: var(--accent); border-radius: 4px 4px 0 0; min-height: 2px; }
   .bar-col .bar-label { font-size: 9px; color: var(--sub); margin-top: 4px; height: 11px; }
+
+  .nutrient-row { margin-bottom: 14px; }
+  .nutrient-row:last-child { margin-bottom: 0; }
+  .nutrient-row-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px; }
+  .nutrient-row-label { font-size: 13px; font-weight: 600; color: var(--text); }
+  .nutrient-row-value { font-size: 13px; color: var(--sub); }
+  .nutrient-row-value strong { color: var(--text); font-weight: 700; }
+  .nutrient-bar-wrap { height: 7px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .nutrient-bar-fill { height: 100%; border-radius: 4px; background: var(--accent); transition: width 0.4s; }
+  .nutrient-bar-fill.over { background: var(--warn); }
+  .nutrient-row-pct { font-size: 11px; color: var(--sub); margin-top: 4px; text-align: right; }
+
+  .shortage-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13px; }
+  .shortage-item:last-child { border-bottom: none; }
+  .shortage-item .sh-label { color: var(--text); font-weight: 600; }
+  .shortage-item .sh-amount { color: var(--warn); font-weight: 700; }
+
+  .contrib-item { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .contrib-item:last-child { border-bottom: none; }
+  .contrib-header { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; font-weight: 600; margin-bottom: 4px; }
+  .contrib-detail { font-size: 12px; color: var(--sub); }
   .top-food-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 14px; }
   .top-food-item:last-child { border-bottom: none; }
 
@@ -279,6 +300,19 @@
 
   <!-- 통계 탭 -->
   <div class="tab-view" id="tab-stats">
+    <div class="card">
+      <div class="section-title">오늘 섭취 현황</div>
+      <div id="today-nutrient-rows"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">부족한 영양소</div>
+      <div id="today-shortage-list"></div>
+    </div>
+    <div class="card">
+      <div class="section-title">오늘 먹은 음식별 기여도</div>
+      <div id="today-food-contrib-list"></div>
+    </div>
+
     <div class="stat-toggle">
       <button class="active" data-range="week" onclick="setStatsRange('week')">주간</button>
       <button data-range="month" onclick="setStatsRange('month')">월간</button>
@@ -801,6 +835,54 @@ function renderCalDay() {
 }
 
 // ---------- 통계 탭 ----------
+const NUTRIENT_LABELS = { kcal: "칼로리", carb: "탄수화물", protein: "단백질", fat: "지방", fiber: "식이섬유", sodium: "나트륨" };
+function nutrientUnit(key) { return key === "kcal" ? "kcal" : key === "sodium" ? "mg" : "g"; }
+
+function renderTodayStatus() {
+  const logs = getLogs(getToday());
+  const t = sumLogs(logs);
+  const keys = ["kcal", "carb", "protein", "fat", "fiber", "sodium"];
+
+  document.getElementById("today-nutrient-rows").innerHTML = keys.map(k => {
+    const intake = t[k] || 0;
+    const goal = DAILY_GOALS[k];
+    const unit = nutrientUnit(k);
+    const pct = goal ? Math.round((intake / goal) * 100) : 0;
+    return `
+      <div class="nutrient-row">
+        <div class="nutrient-row-top">
+          <span class="nutrient-row-label">${NUTRIENT_LABELS[k]}</span>
+          <span class="nutrient-row-value"><strong>${Math.round(intake)}${unit}</strong> / ${goal}${unit}</span>
+        </div>
+        <div class="nutrient-bar-wrap"><div class="nutrient-bar-fill${pct > 100 ? " over" : ""}" style="width:${Math.min(100, pct)}%"></div></div>
+        <div class="nutrient-row-pct">${pct}%</div>
+      </div>`;
+  }).join("");
+
+  const shortages = keys
+    .map(k => ({ key: k, remain: DAILY_GOALS[k] - (t[k] || 0) }))
+    .filter(s => s.remain > 0);
+  document.getElementById("today-shortage-list").innerHTML = shortages.length === 0
+    ? '<div class="empty-state">오늘 목표 영양소를 모두 채웠어요! 🎉</div>'
+    : shortages.map(s => `
+        <div class="shortage-item">
+          <span class="sh-label">${NUTRIENT_LABELS[s.key]}</span>
+          <span class="sh-amount">${Math.round(s.remain)}${nutrientUnit(s.key)} 더 필요</span>
+        </div>`).join("");
+
+  const contribEl = document.getElementById("today-food-contrib-list");
+  contribEl.innerHTML = logs.length === 0
+    ? '<div class="empty-state">오늘 먹은 기록이 없어요.</div>'
+    : logs.map(l => {
+        const kcalPct = DAILY_GOALS.kcal ? Math.round(((l.kcal || 0) / DAILY_GOALS.kcal) * 100) : 0;
+        return `
+          <div class="contrib-item">
+            <div class="contrib-header"><span>${l.name}</span><span>${l.kcal || 0}kcal · ${kcalPct}%</span></div>
+            <div class="contrib-detail">탄 ${l.carb || 0}g · 단 ${l.protein || 0}g · 지 ${l.fat || 0}g · 식이섬유 ${l.fiber || 0}g · 나트륨 ${l.sodium || 0}mg</div>
+          </div>`;
+      }).reverse().join("");
+}
+
 function setStatsRange(range) {
   statsRange = range;
   document.querySelectorAll(".stat-toggle button").forEach(b => b.classList.toggle("active", b.dataset.range === range));
@@ -819,6 +901,7 @@ function getRangeDates(days) {
 }
 
 function renderStats() {
+  renderTodayStatus();
   const days = statsRange === "week" ? 7 : 30;
   const dates = getRangeDates(days);
   const allLogs = [];
