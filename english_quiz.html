@@ -375,7 +375,7 @@ async function fetchExpressions(withinDays) {
   if (withinDays) {
     const from = new Date();
     from.setDate(from.getDate() - (withinDays - 1));
-    body.filter = { property: "날짜", date: { on_or_after: formatDate(from) } };
+    body.filter = { property: "Date", date: { on_or_after: formatDate(from) } };
   }
   const res = await fetch(WORKER_BASE + "/notion", {
     method: "POST",
@@ -425,7 +425,12 @@ async function startQuiz() {
   document.getElementById("quiz-results-view").style.display = "none";
   document.getElementById("quiz-loading").style.display = "block";
   try {
-    let pool = await fetchExpressions(30);
+    let pool = [];
+    try {
+      pool = await fetchExpressions(30);
+    } catch (e) {
+      pool = [];
+    }
     if (pool.length === 0) pool = await fetchExpressions();
     document.getElementById("quiz-loading").style.display = "none";
     if (pool.length === 0) {
