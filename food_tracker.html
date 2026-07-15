@@ -53,6 +53,10 @@
   .daily-item .bar-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.4s; }
 
   .input-card h2 { font-size: 14px; font-weight: 600; color: var(--sub); margin-bottom: 12px; }
+  .date-row { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+  .date-label { font-size: 13px; color: var(--sub); font-weight: 600; white-space: nowrap; }
+  .date-input { flex: 1; border: 1.5px solid var(--border); border-radius: 10px; padding: 8px 10px; font-size: 14px; font-family: var(--font); color: var(--text); background: var(--bg); outline: none; }
+  .date-input:focus { border-color: var(--accent); }
   .meal-select { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
   .meal-btn { padding: 6px 12px; border-radius: 20px; border: 1.5px solid var(--border); background: transparent; font-size: 13px; color: var(--sub); cursor: pointer; transition: all 0.15s; }
   .meal-btn.active { border-color: var(--accent); background: var(--accent-light); color: var(--accent); font-weight: 600; }
@@ -244,6 +248,10 @@
 
     <div class="card input-card">
       <h2>지금 먹은 것 기록</h2>
+      <div class="date-row">
+        <label for="food-date" class="date-label">날짜</label>
+        <input type="date" id="food-date" class="date-input">
+      </div>
       <div class="meal-select">
         <button class="meal-btn active" onclick="selectMeal(this, '아침')">🌅 아침</button>
         <button class="meal-btn" onclick="selectMeal(this, '점심')">☀️ 점심</button>
@@ -432,6 +440,14 @@ function toggleTheme() {
   document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
   localStorage.setItem("theme", isDark ? "dark" : "light");
 }
+
+// ---------- Food date picker ----------
+(function initFoodDateInput() {
+  const input = document.getElementById("food-date");
+  const today = getToday();
+  input.value = today;
+  input.max = today;
+})();
 
 // ---------- Toast ----------
 function showToast(message, type = "error") {
@@ -629,19 +645,24 @@ function handlePhoto(input) {
 async function submitFood() {
   const text = document.getElementById("food-input").value.trim();
   if (!text && !photoBase64) { showToast("음식 이름을 입력하거나 사진을 첨부해주세요."); return; }
+  const entryDate = document.getElementById("food-date").value || getToday();
   document.getElementById("submit-btn").disabled = true;
   document.getElementById("loading").style.display = "block";
   document.getElementById("result-card").style.display = "none";
   try {
     const data = await analyzeFood(text, photoBase64, photoType);
     displayResult(data);
-    const logEntry = { ...data, meal: selectedMeal, time: getTime(), date: getToday() };
-    const notionPageId = await saveToNotion(data);
+    const logEntry = { ...data, meal: selectedMeal, time: getTime(), date: entryDate };
+    const notionPageId = await saveToNotion(data, entryDate);
     if (notionPageId) logEntry.notionPageId = notionPageId;
-    const logs = getLogs(getToday());
+    const logs = getLogs(entryDate);
     logs.push(logEntry);
-    saveLogs(getToday(), logs);
-    renderToday();
+    saveLogs(entryDate, logs);
+    if (entryDate === getToday()) {
+      renderToday();
+    } else {
+      showToast(`${entryDate} 기록으로 저장됐어요.`, "success");
+    }
     document.getElementById("food-input").value = "";
     document.getElementById("photo-preview").style.display = "none";
     photoBase64 = null; photoType = null;
@@ -690,7 +711,7 @@ function displayResult(d) {
   document.getElementById("result-card").style.display = "block";
 }
 
-async function saveToNotion(d) {
+async function saveToNotion(d, dateStr) {
   const NOTION_TOKEN = localStorage.getItem("NOTION_TOKEN");
   const NOTION_DB_ID = localStorage.getItem("NOTION_DB_ID");
   const body = {
@@ -706,7 +727,7 @@ async function saveToNotion(d) {
       "혈당": { select: { name: d.gi } },
       "식사구분": { select: { name: selectedMeal } },
       "메모": { rich_text: [{ text: { content: d.tip } }] },
-      "날짜": { date: { start: getToday() } }
+      "날짜": { date: { start: dateStr || getToday() } }
     }
   };
   try {
