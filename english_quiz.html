@@ -119,7 +119,7 @@
 <div class="setup-screen" id="setup-screen">
   <div class="setup-card">
     <h1>📝 영어 표현 퀴즈</h1>
-    <p>Notion "영어 표현 모음" DB와 연결해서 최근 7일간 배운 표현으로 퀴즈를 풀어요. 토큰은 이 기기에만 저장되며 외부로 전송되지 않아요.</p>
+    <p>Notion "영어 표현 모음" DB와 연결해서 최근 30일간 배운 표현으로 퀴즈를 풀어요. 토큰은 이 기기에만 저장되며 외부로 전송되지 않아요.</p>
     <div class="setup-field">
       <label>Notion Token</label>
       <input type="password" id="input-notion-token" placeholder="ntn_...">
@@ -142,7 +142,7 @@
   <div class="tab-view active" id="tab-quiz">
     <div class="card" id="quiz-start-card">
       <h2>오늘의 표현 퀴즈</h2>
-      <p>지난 7일간 Notion에 등록된 표현 중 5개를 무작위로 출제해요. 한국어 의미와 상황을 보고 영어 표현을 맞혀보세요.</p>
+      <p>지난 30일간 Notion에 등록된 표현 중 5개를 무작위로 출제해요. 없으면 전체 표현 중에서 무작위로 출제해요. 한국어 의미와 상황을 보고 영어 표현을 맞혀보세요.</p>
       <button class="btn-setup" onclick="startQuiz()">퀴즈 시작</button>
     </div>
 
@@ -152,7 +152,7 @@
     </div>
 
     <div class="card" id="quiz-empty" style="display:none">
-      <div class="empty-state">지난 7일간 등록된 표현이 없어요.<br>Notion에 표현을 추가한 뒤 다시 시도해주세요.</div>
+      <div class="empty-state">등록된 표현이 없어요.<br>Notion에 표현을 추가한 뒤 다시 시도해주세요.</div>
     </div>
 
     <div id="quiz-question-view" style="display:none">
@@ -368,15 +368,15 @@ function parseExpressionPage(page) {
   };
 }
 
-async function fetchExpressions() {
+async function fetchExpressions(withinDays) {
   const token = localStorage.getItem("NOTION_TOKEN");
   const dbId = localStorage.getItem("NOTION_DB_ID");
-  const from = new Date();
-  from.setDate(from.getDate() - 6);
-  const body = {
-    filter: { property: "날짜", date: { on_or_after: formatDate(from) } },
-    page_size: 50,
-  };
+  const body = { page_size: withinDays ? 50 : 100 };
+  if (withinDays) {
+    const from = new Date();
+    from.setDate(from.getDate() - (withinDays - 1));
+    body.filter = { property: "날짜", date: { on_or_after: formatDate(from) } };
+  }
   const res = await fetch(WORKER_BASE + "/notion", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -425,7 +425,8 @@ async function startQuiz() {
   document.getElementById("quiz-results-view").style.display = "none";
   document.getElementById("quiz-loading").style.display = "block";
   try {
-    const pool = await fetchExpressions();
+    let pool = await fetchExpressions(30);
+    if (pool.length === 0) pool = await fetchExpressions();
     document.getElementById("quiz-loading").style.display = "none";
     if (pool.length === 0) {
       document.getElementById("quiz-empty").style.display = "block";
