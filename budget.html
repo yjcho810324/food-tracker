@@ -139,6 +139,13 @@
   .nutrient-bar-fill.over { background: var(--warn); }
   .nutrient-row-pct { font-size: 11px; color: var(--sub); margin-top: 4px; text-align: right; }
 
+  .method-cat-block { padding: 12px 0; border-bottom: 1px solid var(--border); }
+  .method-cat-block:last-child { padding-bottom: 0; border-bottom: none; }
+  .method-cat-block:first-child { padding-top: 0; }
+  .method-cat-header { display: flex; justify-content: space-between; font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+  .method-cat-row { display: flex; justify-content: space-between; font-size: 12px; color: var(--sub); padding: 4px 0; }
+  .method-cat-row span:first-child { color: var(--text); }
+
   .donut-wrap { display: flex; align-items: center; gap: 18px; }
   .donut { width: 116px; height: 116px; border-radius: 50%; flex-shrink: 0; position: relative; background: var(--border); }
   .donut-center { position: absolute; inset: 16px; border-radius: 50%; background: var(--card); display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
@@ -325,6 +332,11 @@
       <div class="section-title">카드 혜택 기준 달성 현황</div>
       <div style="font-size:12px; color:var(--sub); margin-bottom:12px">신한·기업 50만원 / 나머지 30만원 기준</div>
       <div id="method-usage-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">결제수단별 카테고리 지출</div>
+      <div id="method-category-breakdown"></div>
     </div>
 
     <div class="card">
@@ -1046,6 +1058,7 @@ function renderStats() {
 
   renderCategoryDonut(monthLogs, t.expense);
   renderMethodUsage(monthLogs);
+  renderMethodCategoryBreakdown(monthLogs);
 
   const ratio = t.income > 0 ? Math.round((t.expense / t.income) * 100) : (t.expense > 0 ? 100 : 0);
   document.getElementById("income-ratio-row").innerHTML = `
@@ -1123,6 +1136,38 @@ function renderMethodUsage(monthLogs) {
         </div>
         <div class="nutrient-bar-wrap"><div class="nutrient-bar-fill" style="width:${Math.min(100, pct)}%"></div></div>
         <div class="nutrient-row-pct">${statusText}</div>
+      </div>`;
+  }).join("");
+}
+
+function renderMethodCategoryBreakdown(monthLogs) {
+  const el = document.getElementById("method-category-breakdown");
+  const expenseLogs = monthLogs.filter(l => l.type === "expense");
+  if (expenseLogs.length === 0) {
+    el.innerHTML = '<div class="empty-state">이번 달 지출 내역이 없어요.</div>';
+    return;
+  }
+
+  const byMethod = {};
+  expenseLogs.forEach(l => {
+    const method = l.method || "기타";
+    if (!byMethod[method]) byMethod[method] = { total: 0, categories: {} };
+    byMethod[method].total += l.amount;
+    byMethod[method].categories[l.category] = (byMethod[method].categories[l.category] || 0) + l.amount;
+  });
+
+  const methods = Object.entries(byMethod).sort((a, b) => b[1].total - a[1].total);
+  el.innerHTML = methods.map(([method, data]) => {
+    const catRows = Object.entries(data.categories)
+      .sort((a, b) => b[1] - a[1])
+      .map(([cat, amount]) => {
+        const pct = Math.round((amount / data.total) * 100);
+        return `<div class="method-cat-row"><span>${CATEGORY_ICON[cat] || "📦"} ${cat}</span><span>${formatWon(amount)} · ${pct}%</span></div>`;
+      }).join("");
+    return `
+      <div class="method-cat-block">
+        <div class="method-cat-header"><span>${method}</span><span>${formatWon(data.total)}</span></div>
+        ${catRows}
       </div>`;
   }).join("");
 }
