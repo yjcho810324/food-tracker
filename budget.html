@@ -322,7 +322,8 @@
     </div>
 
     <div class="card">
-      <div class="section-title">카드/결제수단별 사용금액</div>
+      <div class="section-title">카드 혜택 기준 달성 현황</div>
+      <div style="font-size:12px; color:var(--sub); margin-bottom:12px">신한·기업 50만원 / 나머지 30만원 기준</div>
       <div id="method-usage-list"></div>
     </div>
 
@@ -443,6 +444,9 @@ const CATEGORIES = ["식비", "교통", "쇼핑", "의료", "여가", "투자/�
 const CATEGORY_ICON = { "식비":"🍚", "교통":"🚗", "쇼핑":"🛍️", "의료":"🏥", "여가":"🎮", "투자/저축":"💹", "이안":"🧒", "기타":"📦", "수입":"💵" };
 const CATEGORY_COLOR = { "식비":"#E07A3A", "교통":"#3B82C4", "쇼핑":"#9B59B6", "의료":"#C0392B", "여가":"#16A085", "투자/저축":"#D4AC0D", "이안":"#E85D9E", "기타":"#888880" };
 const DEFAULT_METHODS = ["현대", "삼성", "신한", "기업", "롯데", "우리", "삼성마일리지"];
+const DEFAULT_CARD_THRESHOLD = 300000;
+const CARD_THRESHOLD = { "신한": 500000, "기업": 500000 };
+function getCardThreshold(method) { return CARD_THRESHOLD[method] || DEFAULT_CARD_THRESHOLD; }
 const TAB_TITLES = { today: "오늘", calendar: "달력", stats: "통계", settings: "설정" };
 
 let selectedType = "expense";
@@ -1013,22 +1017,36 @@ function renderCategoryDonut(monthLogs, totalExpense) {
 function renderMethodUsage(monthLogs) {
   const el = document.getElementById("method-usage-list");
   const expenseLogs = monthLogs.filter(l => l.type === "expense");
-  if (expenseLogs.length === 0) {
-    el.innerHTML = '<div class="empty-state">이번 달 지출 내역이 없어요.</div>';
-    return;
-  }
   const totals = {};
   expenseLogs.forEach(l => { totals[l.method || "기타"] = (totals[l.method || "기타"] || 0) + l.amount; });
-  const rows = Object.entries(totals).sort((a, b) => b[1] - a[1]);
-  const max = Math.max(...rows.map(r => r[1]));
-  el.innerHTML = rows.map(([method, amount]) => `
-    <div class="nutrient-row">
-      <div class="nutrient-row-top">
-        <span class="nutrient-row-label">${method}</span>
-        <span class="nutrient-row-value"><strong>${formatWon(amount)}</strong></span>
-      </div>
-      <div class="nutrient-bar-wrap"><div class="nutrient-bar-fill" style="width:${Math.round((amount/max)*100)}%"></div></div>
-    </div>`).join("");
+
+  const methods = getMethods().slice();
+  Object.keys(totals).forEach(m => { if (!methods.includes(m)) methods.push(m); });
+  if (methods.length === 0) {
+    el.innerHTML = '<div class="empty-state">등록된 결제수단이 없어요.</div>';
+    return;
+  }
+
+  const rows = methods
+    .map(m => ({ method: m, amount: totals[m] || 0, threshold: getCardThreshold(m) }))
+    .sort((a, b) => b.amount - a.amount);
+
+  el.innerHTML = rows.map(r => {
+    const pct = Math.round((r.amount / r.threshold) * 100);
+    const achieved = r.amount >= r.threshold;
+    const statusText = achieved
+      ? `✅ 혜택 기준 달성 · +${formatWon(r.amount - r.threshold)} 추가 사용`
+      : `혜택까지 ${formatWon(r.threshold - r.amount)} 남음`;
+    return `
+      <div class="nutrient-row">
+        <div class="nutrient-row-top">
+          <span class="nutrient-row-label">${r.method}</span>
+          <span class="nutrient-row-value"><strong>${formatWon(r.amount)}</strong> / ${formatWon(r.threshold)}</span>
+        </div>
+        <div class="nutrient-bar-wrap"><div class="nutrient-bar-fill" style="width:${Math.min(100, pct)}%"></div></div>
+        <div class="nutrient-row-pct">${statusText}</div>
+      </div>`;
+  }).join("");
 }
 
 // ---------- 설정 탭 ----------
