@@ -197,19 +197,19 @@
 <div class="setup-screen" id="setup-screen">
   <div class="setup-card">
     <h1>💰 가계부</h1>
-    <p>처음 한 번만 설정하면 이후엔 자동으로 연결돼요. API 키/토큰은 이 기기에만 저장되며 외부로 전송되지 않아요.</p>
-    <div class="hint-box">가계부 전용 Notion 데이터베이스가 필요해요. 아래 속성으로 만들어주세요:<br>
+    <p>Notion 연동 없이 바로 시작할 수 있어요. 입력한 내역은 이 기기에 저장되며, 아래 항목은 나중에 설정 탭에서 언제든 추가/변경할 수 있어요.</p>
+    <div class="hint-box">Notion 자동 저장을 쓰려면 가계부 전용 데이터베이스가 필요해요 (선택 사항). 아래 속성으로 만들어주세요:<br>
     <b>항목</b>(제목) · <b>금액</b>(숫자) · <b>유형</b>(선택) · <b>카테고리</b>(선택) · <b>결제수단</b>(선택) · <b>메모</b>(텍스트) · <b>날짜</b>(날짜)</div>
     <div class="setup-field">
       <label>Anthropic API Key <span style="font-weight:400">(선택, 자동분류용)</span></label>
       <input type="password" id="input-api-key" placeholder="sk-ant-api03-...">
     </div>
     <div class="setup-field">
-      <label>Notion Token</label>
+      <label>Notion Token <span style="font-weight:400">(선택)</span></label>
       <input type="password" id="input-notion-token" placeholder="ntn_...">
     </div>
     <div class="setup-field">
-      <label>가계부 Notion DB ID</label>
+      <label>가계부 Notion DB ID <span style="font-weight:400">(선택)</span></label>
       <input type="text" id="input-notion-db" placeholder="39528a50...">
     </div>
     <button class="btn-setup" onclick="saveSetup()">시작하기</button>
@@ -351,11 +351,11 @@
         <input type="password" id="settings-api-key" placeholder="sk-ant-api03-...">
       </div>
       <div class="setup-field">
-        <label>Notion Token</label>
+        <label>Notion Token <span style="font-weight:400">(선택)</span></label>
         <input type="password" id="settings-notion-token" placeholder="ntn_...">
       </div>
       <div class="setup-field" style="margin-bottom:0">
-        <label>가계부 Notion DB ID</label>
+        <label>가계부 Notion DB ID <span style="font-weight:400">(선택)</span></label>
         <input type="text" id="settings-notion-db" placeholder="39528a50...">
       </div>
       <button class="btn-setup" onclick="saveSettings()">저장</button>
@@ -637,10 +637,10 @@ function saveSetup() {
   const apiKey = document.getElementById("input-api-key").value.trim();
   const notionToken = document.getElementById("input-notion-token").value.trim();
   const notionDb = document.getElementById("input-notion-db").value.trim();
-  if (!notionToken || !notionDb) { showToast("Notion Token과 DB ID는 필수예요."); return; }
   if (apiKey) localStorage.setItem("ANTHROPIC_API_KEY", apiKey);
-  localStorage.setItem("NOTION_TOKEN", notionToken);
-  localStorage.setItem("BUDGET_NOTION_DB_ID", notionDb);
+  if (notionToken) localStorage.setItem("NOTION_TOKEN", notionToken);
+  if (notionDb) localStorage.setItem("BUDGET_NOTION_DB_ID", notionDb);
+  localStorage.setItem("BUDGET_SETUP_DONE", "1");
   showApp();
 }
 
@@ -661,7 +661,7 @@ function showApp() {
 window.onload = () => {
   document.getElementById("input-api-key").value = localStorage.getItem("ANTHROPIC_API_KEY") || "";
   document.getElementById("input-notion-token").value = localStorage.getItem("NOTION_TOKEN") || "";
-  if (localStorage.getItem("BUDGET_NOTION_DB_ID")) {
+  if (localStorage.getItem("BUDGET_SETUP_DONE")) {
     showApp();
   }
   if ("serviceWorker" in navigator) {
@@ -762,6 +762,7 @@ async function classifyCategory(payee) {
 async function saveToNotion(l) {
   const NOTION_TOKEN = localStorage.getItem("NOTION_TOKEN");
   const NOTION_DB_ID = localStorage.getItem("BUDGET_NOTION_DB_ID");
+  if (!NOTION_TOKEN || !NOTION_DB_ID) return null;
   const body = {
     parent: { database_id: NOTION_DB_ID },
     properties: {
@@ -1043,11 +1044,12 @@ function saveSettings() {
   const apiKey = document.getElementById("settings-api-key").value.trim();
   const notionToken = document.getElementById("settings-notion-token").value.trim();
   const notionDb = document.getElementById("settings-notion-db").value.trim();
-  if (!notionToken || !notionDb) { showToast("Notion Token과 DB ID는 필수예요."); return; }
   if (apiKey) localStorage.setItem("ANTHROPIC_API_KEY", apiKey);
   else localStorage.removeItem("ANTHROPIC_API_KEY");
-  localStorage.setItem("NOTION_TOKEN", notionToken);
-  localStorage.setItem("BUDGET_NOTION_DB_ID", notionDb);
+  if (notionToken) localStorage.setItem("NOTION_TOKEN", notionToken);
+  else localStorage.removeItem("NOTION_TOKEN");
+  if (notionDb) localStorage.setItem("BUDGET_NOTION_DB_ID", notionDb);
+  else localStorage.removeItem("BUDGET_NOTION_DB_ID");
   showToast("설정이 저장됐어요.", "success");
 }
 
