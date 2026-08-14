@@ -382,6 +382,27 @@
     </div>
 
     <div class="card">
+      <div class="section-title">고정 지출 관리</div>
+      <div style="font-size:12px; color:var(--sub); margin-bottom:12px">매달 1일에 결제수단 '현금'으로 자동 기록돼요.</div>
+      <div class="method-list" id="settings-fixed-list"></div>
+      <div class="field-row">
+        <label>이름</label>
+        <input type="text" id="new-fixed-name" placeholder="예: 보험료">
+      </div>
+      <div class="field-grid-2">
+        <div class="field-row">
+          <label>금액</label>
+          <input type="number" id="new-fixed-amount" placeholder="0">
+        </div>
+        <div class="field-row">
+          <label>카테고리</label>
+          <select id="new-fixed-category"></select>
+        </div>
+      </div>
+      <button class="btn-add-method" style="width:100%; padding:10px" onclick="addFixedExpense()">추가</button>
+    </div>
+
+    <div class="card">
       <button class="btn-danger-outline" onclick="resetSetup()">가계부 DB 연결 초기화</button>
     </div>
   </div>
@@ -447,6 +468,62 @@ const DEFAULT_METHODS = ["현대", "삼성", "신한", "기업", "롯데", "우�
 const DEFAULT_CARD_THRESHOLD = 300000;
 const CARD_THRESHOLD = { "신한": 500000, "기업": 500000 };
 function getCardThreshold(method) { return CARD_THRESHOLD[method] || DEFAULT_CARD_THRESHOLD; }
+
+const DEFAULT_FIXED_EXPENSES = [
+  { name: "보험료", amount: 132848, category: "기타", method: "현금" },
+  { name: "전세자금", amount: 1710000, category: "투자/저축", method: "현금" },
+  { name: "아버지", amount: 300000, category: "기타", method: "현금" },
+  { name: "동생", amount: 100000, category: "기타", method: "현금" },
+  { name: "청약", amount: 100000, category: "투자/저축", method: "현금" },
+];
+function getFixedExpenses() {
+  const stored = JSON.parse(localStorage.getItem("BUDGET_FIXED_EXPENSES") || "null");
+  return stored || DEFAULT_FIXED_EXPENSES;
+}
+function saveFixedExpenses(list) { localStorage.setItem("BUDGET_FIXED_EXPENSES", JSON.stringify(list)); }
+
+// 매달 1일에 등록된 고정 지출을 자동으로 기록한다. 마지막으로 적용된 달 이후
+// 지금까지의 달을 전부 훑어서, 앱을 한동안 안 열었어도 밀린 달을 채워 넣는다.
+async function applyFixedExpenses() {
+  const items = getFixedExpenses();
+  if (items.length === 0) return;
+
+  const applied = JSON.parse(localStorage.getItem("BUDGET_FIXED_APPLIED_MONTHS") || "[]");
+  const now = new Date();
+  const curYear = now.getFullYear();
+  const curMonth = now.getMonth() + 1;
+
+  let y, m;
+  if (applied.length > 0) {
+    const [ly, lm] = applied[applied.length - 1].split("-").map(Number);
+    y = ly; m = lm + 1;
+    if (m > 12) { m = 1; y += 1; }
+  } else {
+    y = curYear; m = curMonth;
+  }
+
+  while (y < curYear || (y === curYear && m <= curMonth)) {
+    const monthStr = `${y}-${pad(m)}`;
+    if (!applied.includes(monthStr)) {
+      const dateStr = `${monthStr}-01`;
+      const logs = getLogs(dateStr);
+      for (const item of items) {
+        const entry = {
+          type: "expense", category: item.category, payee: item.name, amount: item.amount,
+          method: item.method || "현금", memo: "고정 지출 자동 기록", date: dateStr, time: "00:00"
+        };
+        const notionPageId = await saveToNotion(entry);
+        if (notionPageId) entry.notionPageId = notionPageId;
+        logs.push(entry);
+      }
+      saveLogs(dateStr, logs);
+      applied.push(monthStr);
+    }
+    m += 1;
+    if (m > 12) { m = 1; y += 1; }
+  }
+  localStorage.setItem("BUDGET_FIXED_APPLIED_MONTHS", JSON.stringify(applied));
+}
 const TAB_TITLES = { today: "오늘", calendar: "달력", stats: "통계", settings: "설정" };
 
 let selectedType = "expense";
@@ -655,11 +732,12 @@ function resetSetup() {
   location.reload();
 }
 
-function showApp() {
+async function showApp() {
   document.getElementById("setup-screen").style.display = "none";
   document.getElementById("app-screen").style.display = "block";
   document.getElementById("bottom-nav").style.display = "flex";
   populateMethodSelect(document.getElementById("entry-method"));
+  await applyFixedExpenses();
   switchTab("today");
 }
 
@@ -1057,6 +1135,7 @@ function renderSettings() {
   document.getElementById("settings-budget").value = getBudget() || "";
   document.getElementById("theme-toggle").checked = document.documentElement.getAttribute("data-theme") === "dark";
   renderMethodSettings();
+  renderFixedExpenseSettings();
 }
 
 function saveSettings() {
@@ -1108,6 +1187,39 @@ function removeMethod(idx) {
   saveMethods(methods);
   renderMethodSettings();
   populateMethodSelect(document.getElementById("entry-method"));
+}
+
+function renderFixedExpenseSettings() {
+  const items = getFixedExpenses();
+  document.getElementById("settings-fixed-list").innerHTML = items.length === 0
+    ? '<div class="empty-state" style="padding:10px 0">등록된 고정 지출이 없어요.</div>'
+    : items.map((it, i) => `
+      <div class="method-item">
+        <span>${CATEGORY_ICON[it.category] || "📦"} ${it.name} · ${formatWon(it.amount)}</span>
+        <button class="method-remove" onclick="removeFixedExpense(${i})">삭제</button>
+      </div>`).join("");
+  document.getElementById("new-fixed-category").innerHTML = CATEGORIES.map(c => `<option value="${c}">${CATEGORY_ICON[c]} ${c}</option>`).join("");
+}
+
+function addFixedExpense() {
+  const name = document.getElementById("new-fixed-name").value.trim();
+  const amount = Number(document.getElementById("new-fixed-amount").value);
+  const category = document.getElementById("new-fixed-category").value;
+  if (!name || !amount || amount <= 0 || Number.isNaN(amount)) { showToast("이름과 금액을 올바르게 입력해주세요."); return; }
+  const items = getFixedExpenses();
+  items.push({ name, amount, category, method: "현금" });
+  saveFixedExpenses(items);
+  document.getElementById("new-fixed-name").value = "";
+  document.getElementById("new-fixed-amount").value = "";
+  renderFixedExpenseSettings();
+  showToast("고정 지출이 추가됐어요. 다음 달 1일부터 자동 기록돼요.", "success");
+}
+
+function removeFixedExpense(idx) {
+  const items = getFixedExpenses();
+  items.splice(idx, 1);
+  saveFixedExpenses(items);
+  renderFixedExpenseSettings();
 }
 </script>
 </body>
