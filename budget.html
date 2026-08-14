@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>가계부</title>
+<link rel="manifest" href="manifest-budget.json">
+<meta name="theme-color" content="#2D6A4F">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="가계부">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -655,6 +663,9 @@ window.onload = () => {
   document.getElementById("input-notion-token").value = localStorage.getItem("NOTION_TOKEN") || "";
   if (localStorage.getItem("BUDGET_NOTION_DB_ID")) {
     showApp();
+  }
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw-budget.js").catch(() => {});
   }
 };
 
