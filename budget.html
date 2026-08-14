@@ -261,6 +261,7 @@
         <button class="chip-btn" data-cat="여가" onclick="selectCategory('여가')">🎮 여가</button>
         <button class="chip-btn" data-cat="투자/저축" onclick="selectCategory('투자/저축')">💹 투자/저축</button>
         <button class="chip-btn" data-cat="이안" onclick="selectCategory('이안')">🧒 이안</button>
+        <button class="chip-btn" data-cat="현금" onclick="selectCategory('현금')">🪙 현금</button>
         <button class="chip-btn" data-cat="기타" onclick="selectCategory('기타')">📦 기타</button>
       </div>
       <div class="field-row">
@@ -440,9 +441,9 @@
 
 <script>
 const WORKER_BASE = "https://anthropic-proxy-worker.yjcho0324.workers.dev";
-const CATEGORIES = ["식비", "교통", "쇼핑", "의료", "여가", "투자/저축", "이안", "기타"];
-const CATEGORY_ICON = { "식비":"🍚", "교통":"🚗", "쇼핑":"🛍️", "의료":"🏥", "여가":"🎮", "투자/저축":"💹", "이안":"🧒", "기타":"📦", "수입":"💵" };
-const CATEGORY_COLOR = { "식비":"#E07A3A", "교통":"#3B82C4", "쇼핑":"#9B59B6", "의료":"#C0392B", "여가":"#16A085", "투자/저축":"#D4AC0D", "이안":"#E85D9E", "기타":"#888880" };
+const CATEGORIES = ["식비", "교통", "쇼핑", "의료", "여가", "투자/저축", "이안", "현금", "기타"];
+const CATEGORY_ICON = { "식비":"🍚", "교통":"🚗", "쇼핑":"🛍️", "의료":"🏥", "여가":"🎮", "투자/저축":"💹", "이안":"🧒", "현금":"🪙", "기타":"📦", "수입":"💵" };
+const CATEGORY_COLOR = { "식비":"#E07A3A", "교통":"#3B82C4", "쇼핑":"#9B59B6", "의료":"#C0392B", "여가":"#16A085", "투자/저축":"#D4AC0D", "이안":"#E85D9E", "현금":"#8D6E63", "기타":"#888880" };
 const DEFAULT_METHODS = ["현대", "삼성", "신한", "기업", "롯데", "우리", "삼성마일리지"];
 const DEFAULT_CARD_THRESHOLD = 300000;
 const CARD_THRESHOLD = { "신한": 500000, "기업": 500000 };
