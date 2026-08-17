@@ -346,7 +346,7 @@
     </div>
 
     <div class="card">
-      <div class="section-title">자주 쓴 사용처</div>
+      <div class="section-title">카드별 사용처 지출</div>
       <div id="payee-rank-list"></div>
     </div>
 
@@ -1192,22 +1192,28 @@ function renderPayeeBreakdown(monthLogs) {
     return;
   }
 
-  const totals = {};
+  const byMethod = {};
   expenseLogs.forEach(l => {
-    if (!totals[l.payee]) totals[l.payee] = { amount: 0, count: 0 };
-    totals[l.payee].amount += l.amount;
-    totals[l.payee].count += 1;
+    const method = l.method || "기타";
+    if (!byMethod[method]) byMethod[method] = { total: 0, payees: {} };
+    byMethod[method].total += l.amount;
+    if (!byMethod[method].payees[l.payee]) byMethod[method].payees[l.payee] = { amount: 0, count: 0 };
+    byMethod[method].payees[l.payee].amount += l.amount;
+    byMethod[method].payees[l.payee].count += 1;
   });
 
-  const rows = Object.entries(totals).sort((a, b) => b[1].amount - a[1].amount).slice(0, 10);
-  el.innerHTML = rows.map(([payee, data], i) => `
-    <div class="rank-item">
-      <div>
-        <span class="rank-name">${i + 1}. ${payee}</span>
-        <div class="rank-detail">${data.count}회</div>
-      </div>
-      <span class="rank-amount">${formatWon(data.amount)}</span>
-    </div>`).join("");
+  const methods = Object.entries(byMethod).sort((a, b) => b[1].total - a[1].total);
+  el.innerHTML = methods.map(([method, data]) => {
+    const payeeRows = Object.entries(data.payees)
+      .sort((a, b) => b[1].amount - a[1].amount)
+      .map(([payee, p]) => `<div class="method-cat-row"><span>${payee}${p.count > 1 ? ` (${p.count}회)` : ""}</span><span>${formatWon(p.amount)}</span></div>`)
+      .join("");
+    return `
+      <div class="method-cat-block">
+        <div class="method-cat-header"><span>${method}</span><span>${formatWon(data.total)}</span></div>
+        ${payeeRows}
+      </div>`;
+  }).join("");
 }
 
 // ---------- 설정 탭 ----------
