@@ -119,6 +119,9 @@
   .cal-dot { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); }
   .cal-dot.neg { background: var(--danger); }
   .cal-day.selected .cal-dot { background: #fff; }
+  .cal-daynum { line-height: 1; }
+  .cal-amt { font-size: 8px; color: var(--danger); line-height: 1; font-weight: 600; }
+  .cal-day.selected .cal-amt { color: #fff; }
 
   /* Stats */
   .stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 14px; }
@@ -211,8 +214,8 @@
   <div class="setup-card">
     <h1>💰 가계부</h1>
     <p>Notion 연동 없이 바로 시작할 수 있어요. 입력한 내역은 이 기기에 저장되며, 아래 항목은 나중에 설정 탭에서 언제든 추가/변경할 수 있어요.</p>
-    <div class="hint-box">Notion 자동 저장을 쓰려면 가계부 전용 데이터베이스가 필요해요 (선택 사항). 아래 속성으로 만들어주세요:<br>
-    <b>항목</b>(제목) · <b>금액</b>(숫자) · <b>유형</b>(선택) · <b>카테고리</b>(선택) · <b>결제수단</b>(선택) · <b>메모</b>(텍스트) · <b>날짜</b>(날짜)</div>
+    <div class="hint-box">Notion 자동 저장을 쓰려면 Notion Token만 입력하면 돼요. DB ID는 기본값이 이미 채워져 있어요. 가계부 데이터베이스는 아래 속성으로 만들어주세요:<br>
+    <b>내용</b>(제목) · <b>금액</b>(숫자) · <b>카테고리</b>(선택) · <b>카드</b>(선택) · <b>사용처</b>(텍스트) · <b>사용자</b>(선택) · <b>수입/지출</b>(선택) · <b>날짜</b>(날짜) · <b>메모</b>(텍스트)</div>
     <div class="setup-field">
       <label>Anthropic API Key <span style="font-weight:400">(선택, 자동분류용)</span></label>
       <input type="password" id="input-api-key" placeholder="sk-ant-api03-...">
@@ -222,8 +225,8 @@
       <input type="password" id="input-notion-token" placeholder="ntn_...">
     </div>
     <div class="setup-field">
-      <label>가계부 Notion DB ID <span style="font-weight:400">(선택)</span></label>
-      <input type="text" id="input-notion-db" placeholder="39528a50...">
+      <label>가계부 Notion DB ID <span style="font-weight:400">(선택, 기본값 있음)</span></label>
+      <input type="text" id="input-notion-db" placeholder="39528a50..." value="23c1d8e610124197b62e0a6297ab3155">
     </div>
     <button class="btn-setup" onclick="saveSetup()">시작하기</button>
   </div>
@@ -290,6 +293,13 @@
           <select id="entry-method"></select>
         </div>
       </div>
+      <div class="field-row">
+        <label>사용자</label>
+        <div class="chip-row" id="user-chip-row" style="margin-bottom:0">
+          <button class="chip-btn active" data-user="윤준님" onclick="selectUser('윤준님')">윤준님</button>
+          <button class="chip-btn" data-user="와이프" onclick="selectUser('와이프')">와이프</button>
+        </div>
+      </div>
       <div class="field-row" style="margin-bottom:0">
         <label>메모 <span style="font-weight:400">(선택)</span></label>
         <input type="text" id="entry-memo" placeholder="메모를 남겨보세요">
@@ -348,6 +358,11 @@
     <div class="card">
       <div class="section-title">카드별 사용처 지출</div>
       <div id="payee-rank-list"></div>
+    </div>
+
+    <div class="card">
+      <div class="section-title">사용자별 지출</div>
+      <div id="user-rank-list"></div>
     </div>
 
     <div class="card">
@@ -469,6 +484,13 @@
         <select id="edit-method"></select>
       </div>
     </div>
+    <div class="field-row">
+      <label>사용자</label>
+      <div class="chip-row" id="edit-user-chip-row" style="margin-bottom:0">
+        <button class="chip-btn active" data-user="윤준님" onclick="selectEditUser('윤준님')">윤준님</button>
+        <button class="chip-btn" data-user="와이프" onclick="selectEditUser('와이프')">와이프</button>
+      </div>
+    </div>
     <div class="field-row" style="margin-bottom:0">
       <label>메모</label>
       <input type="text" id="edit-memo">
@@ -484,6 +506,8 @@
 
 <script>
 const WORKER_BASE = "https://anthropic-proxy-worker.yjcho0324.workers.dev";
+const DEFAULT_NOTION_DB_ID = "23c1d8e610124197b62e0a6297ab3155";
+const USERS = ["윤준님", "와이프"];
 const CATEGORIES = ["식비", "교통", "쇼핑", "의료", "여가", "투자/저축", "이안", "기타"];
 const CATEGORY_ICON = { "식비":"🍚", "교통":"🚗", "쇼핑":"🛍️", "의료":"🏥", "여가":"🎮", "투자/저축":"💹", "이안":"🧒", "기타":"📦", "수입":"💵" };
 const CATEGORY_COLOR = { "식비":"#E07A3A", "교통":"#3B82C4", "쇼핑":"#9B59B6", "의료":"#C0392B", "여가":"#16A085", "투자/저축":"#D4AC0D", "이안":"#E85D9E", "기타":"#888880" };
@@ -551,6 +575,7 @@ const TAB_TITLES = { today: "오늘", calendar: "달력", stats: "통계", setti
 
 let selectedType = "expense";
 let selectedCategory = "auto";
+let selectedUser = "윤준님";
 let toastTimer = null;
 let currentTab = "today";
 let calYear, calMonth; // calMonth: 0-indexed
@@ -558,6 +583,7 @@ let selectedCalDate = null;
 let statsYear, statsMonth;
 let editingContext = null;
 let editSelectedType = "expense";
+let editSelectedUser = "윤준님";
 
 // ---------- Theme ----------
 (function initTheme() {
@@ -605,6 +631,13 @@ function getToday() { return formatDate(new Date()); }
 function getTodayKo() { const d = new Date(); return `${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일`; }
 function getTime() { const d = new Date(); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; }
 function formatWon(n) { return Math.round(n || 0).toLocaleString("ko-KR") + "원"; }
+function formatWonCompact(n) {
+  n = Math.round(n || 0);
+  if (n === 0) return "";
+  if (Math.abs(n) >= 10000) return (n / 10000).toFixed(1).replace(/\.0$/, "") + "만";
+  return n.toLocaleString("ko-KR");
+}
+function getNotionDbId() { return localStorage.getItem("BUDGET_NOTION_DB_ID") || DEFAULT_NOTION_DB_ID; }
 function getLogs(dateStr) { return JSON.parse(localStorage.getItem("budget_logs_" + dateStr) || "[]"); }
 function saveLogs(dateStr, logs) { localStorage.setItem("budget_logs_" + dateStr, JSON.stringify(logs)); }
 function deleteLogEntry(dateStr, idx) {
@@ -650,6 +683,7 @@ function renderLogItem(l, dateStr, idx) {
       <div class="log-header" style="margin-bottom:0; align-items:center">
         <div class="log-sub">
           <span>${l.method || ""}</span>
+          ${l.user ? `<span>· ${l.user}</span>` : ""}
           ${l.memo ? `<span>· ${l.memo}</span>` : ""}
         </div>
         <div class="log-amount ${l.type}">${sign}${formatWon(l.amount)}</div>
@@ -682,7 +716,13 @@ function openEditModal(dateStr, idx) {
   document.getElementById("edit-method").value = log.method || getMethods()[0];
   document.getElementById("edit-memo").value = log.memo || "";
   if (log.type === "expense") document.getElementById("edit-category").value = log.category;
+  selectEditUser(log.user || "윤준님");
   document.getElementById("edit-modal").classList.add("show");
+}
+
+function selectEditUser(u) {
+  editSelectedUser = u;
+  document.querySelectorAll("#edit-user-chip-row .chip-btn").forEach(b => b.classList.toggle("active", b.dataset.user === u));
 }
 
 function selectEditType(type) {
@@ -717,7 +757,7 @@ async function saveEditLog() {
     return;
   }
 
-  const updated = { ...log, type: editSelectedType, date: newDate, payee, amount, method, memo, category };
+  const updated = { ...log, type: editSelectedType, date: newDate, payee, amount, method, memo, category, user: editSelectedUser };
 
   const saveBtn = document.getElementById("edit-save-btn");
   saveBtn.disabled = true;
@@ -803,6 +843,11 @@ function selectCategory(cat) {
   document.querySelectorAll("#cat-chip-row .chip-btn").forEach(b => b.classList.toggle("active", b.dataset.cat === cat));
 }
 
+function selectUser(u) {
+  selectedUser = u;
+  document.querySelectorAll("#user-chip-row .chip-btn").forEach(b => b.classList.toggle("active", b.dataset.user === u));
+}
+
 async function submitEntry() {
   const date = document.getElementById("entry-date").value || getToday();
   const payee = document.getElementById("entry-payee").value.trim();
@@ -818,7 +863,7 @@ async function submitEntry() {
     if (selectedType === "expense") {
       category = selectedCategory === "auto" ? await classifyCategory(payee) : selectedCategory;
     }
-    const logEntry = { type: selectedType, category, payee, amount, method, memo, date, time: getTime() };
+    const logEntry = { type: selectedType, category, payee, amount, method, memo, date, time: getTime(), user: selectedUser };
     const notionPageId = await saveToNotion(logEntry);
     if (notionPageId) logEntry.notionPageId = notionPageId;
     const logs = getLogs(date);
@@ -867,16 +912,18 @@ async function classifyCategory(payee) {
 
 async function saveToNotion(l) {
   const NOTION_TOKEN = localStorage.getItem("NOTION_TOKEN");
-  const NOTION_DB_ID = localStorage.getItem("BUDGET_NOTION_DB_ID");
+  const NOTION_DB_ID = getNotionDbId();
   if (!NOTION_TOKEN || !NOTION_DB_ID) return null;
   const body = {
     parent: { database_id: NOTION_DB_ID },
     properties: {
-      "항목": { title: [{ text: { content: l.payee || (l.type === "income" ? "수입" : l.category) } }] },
+      "내용": { title: [{ text: { content: l.payee || (l.type === "income" ? "수입" : l.category) } }] },
       "금액": { number: l.amount },
-      "유형": { select: { name: l.type === "income" ? "수입" : "지출" } },
       "카테고리": { select: { name: l.category } },
-      "결제수단": { select: { name: l.method } },
+      "카드": { select: { name: l.method } },
+      "사용처": { rich_text: [{ text: { content: l.payee || "" } }] },
+      "사용자": { select: { name: l.user || "윤준님" } },
+      "수입/지출": { select: { name: l.type === "income" ? "수입" : "지출" } },
       "메모": { rich_text: [{ text: { content: l.memo || "" } }] },
       "날짜": { date: { start: l.date || getToday() } }
     }
@@ -900,11 +947,13 @@ async function updateNotionPage(pageId, l) {
   const NOTION_TOKEN = localStorage.getItem("NOTION_TOKEN");
   const body = {
     properties: {
-      "항목": { title: [{ text: { content: l.payee || (l.type === "income" ? "수입" : l.category) } }] },
+      "내용": { title: [{ text: { content: l.payee || (l.type === "income" ? "수입" : l.category) } }] },
       "금액": { number: l.amount },
-      "유형": { select: { name: l.type === "income" ? "수입" : "지출" } },
       "카테고리": { select: { name: l.category } },
-      "결제수단": { select: { name: l.method } },
+      "카드": { select: { name: l.method } },
+      "사용처": { rich_text: [{ text: { content: l.payee || "" } }] },
+      "사용자": { select: { name: l.user || "윤준님" } },
+      "수입/지출": { select: { name: l.type === "income" ? "수입" : "지출" } },
       "메모": { rich_text: [{ text: { content: l.memo || "" } }] },
       "날짜": { date: { start: l.date || getToday() } }
     }
@@ -980,11 +1029,8 @@ function renderCalendar() {
     const classes = ["cal-day"];
     if (dateStr === todayStr) classes.push("today");
     if (dateStr === selectedCalDate) classes.push("selected");
-    let dot = "";
-    if (dayLogs.length > 0) {
-      dot = `<span class="cal-dot${(t.income - t.expense) < 0 ? " neg" : ""}"></span>`;
-    }
-    html += `<div class="${classes.join(" ")}" onclick="selectCalDate('${dateStr}')">${d}${dot}</div>`;
+    const amtHtml = t.expense > 0 ? `<span class="cal-amt">${formatWonCompact(t.expense)}</span>` : "";
+    html += `<div class="${classes.join(" ")}" onclick="selectCalDate('${dateStr}')"><span class="cal-daynum">${d}</span>${amtHtml}</div>`;
   }
   document.getElementById("cal-grid").innerHTML = html;
   renderCalDay();
@@ -1071,6 +1117,7 @@ function renderStats() {
   renderMethodUsage(monthLogs);
   renderMethodCategoryBreakdown(monthLogs);
   renderPayeeBreakdown(monthLogs);
+  renderUserBreakdown(monthLogs);
 
   const ratio = t.income > 0 ? Math.round((t.expense / t.income) * 100) : (t.expense > 0 ? 100 : 0);
   document.getElementById("income-ratio-row").innerHTML = `
@@ -1216,11 +1263,28 @@ function renderPayeeBreakdown(monthLogs) {
   }).join("");
 }
 
+function renderUserBreakdown(monthLogs) {
+  const el = document.getElementById("user-rank-list");
+  const expenseLogs = monthLogs.filter(l => l.type === "expense");
+  if (expenseLogs.length === 0) {
+    el.innerHTML = '<div class="empty-state">이번 달 지출 내역이 없어요.</div>';
+    return;
+  }
+  const totals = {};
+  expenseLogs.forEach(l => { const u = l.user || "미지정"; totals[u] = (totals[u] || 0) + l.amount; });
+  const totalExpense = expenseLogs.reduce((s, l) => s + l.amount, 0);
+  const rows = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  el.innerHTML = rows.map(([user, amount]) => {
+    const pct = totalExpense ? Math.round((amount / totalExpense) * 100) : 0;
+    return `<div class="rank-item"><span class="rank-name">${user}</span><span class="rank-amount">${formatWon(amount)} · ${pct}%</span></div>`;
+  }).join("");
+}
+
 // ---------- 설정 탭 ----------
 function renderSettings() {
   document.getElementById("settings-api-key").value = localStorage.getItem("ANTHROPIC_API_KEY") || "";
   document.getElementById("settings-notion-token").value = localStorage.getItem("NOTION_TOKEN") || "";
-  document.getElementById("settings-notion-db").value = localStorage.getItem("BUDGET_NOTION_DB_ID") || "";
+  document.getElementById("settings-notion-db").value = getNotionDbId();
   document.getElementById("settings-budget").value = getBudget() || "";
   document.getElementById("theme-toggle").checked = document.documentElement.getAttribute("data-theme") === "dark";
   renderMethodSettings();
