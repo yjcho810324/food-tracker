@@ -387,6 +387,12 @@
     </div>
 
     <div class="card">
+      <div class="section-title">Notion에서 불러오기</div>
+      <div style="font-size:12px; color:var(--sub); margin-bottom:12px">기기의 내역이 사라졌을 때, Notion에 저장된 내역을 다시 불러와요. 이미 있는 로컬 전용 내역은 유지돼요.</div>
+      <button class="btn-setup" id="import-notion-btn" onclick="importFromNotion()">Notion에서 불러오기</button>
+    </div>
+
+    <div class="card">
       <div class="section-title">월 예산 설정</div>
       <div class="setup-field" style="margin-bottom:0">
         <label>이번 달 예산(원)</label>
@@ -530,7 +536,11 @@ async function applyFixedExpenses() {
     if (!applied.includes(monthStr)) {
       const dateStr = `${monthStr}-01`;
       const logs = getLogs(dateStr);
+      // localStorage가 지워져 BUDGET_FIXED_APPLIED_MONTHS를 잃어버려도 중복 기록을 만들지
+      // 않도록, 이미 같은 이름+금액의 항목이 그 날짜에 있으면(Notion에서 막 불러온 것 포함) 건너뛴다.
       for (const item of items) {
+        const alreadyExists = logs.some(l => l.payee === item.name && l.amount === item.amount && l.type === "expense");
+        if (alreadyExists) continue;
         const entry = {
           type: "expense", category: item.category, payee: item.name, amount: item.amount,
           method: item.method || "현금", memo: "고정 지출 자동 기록", date: dateStr, time: "00:00"
@@ -760,6 +770,9 @@ async function showApp() {
   document.getElementById("app-screen").style.display = "block";
   document.getElementById("bottom-nav").style.display = "flex";
   populateMethodSelect(document.getElementById("entry-method"));
+  // 고정 지출을 새로 만들기 전에 Notion에 이미 있는 내역부터 조용히 받아온다.
+  // (기기 데이터가 지워졌을 때도 고정 지출이 중복 생성되지 않도록)
+  await pullFromNotion();
   await applyFixedExpenses();
   switchTab("today");
 }
@@ -1245,6 +1258,85 @@ function saveBudget() {
   if (Number.isNaN(val) || val < 0) { showToast("예산을 올바르게 입력해주세요."); return; }
   localStorage.setItem("BUDGET_MONTHLY_BUDGET", String(val));
   showToast("예산이 저장됐어요.", "success");
+}
+
+// Notion에 저장된 내역을 내려받아 로컬에 반영한다. notionPageId가 있는 기존
+// 로컬 항목은 최신 Notion 상태로 교체되고, 아직 동기화 안 된 로컬 전용
+// 항목(notionPageId 없음)은 그대로 보존된다. 실패해도 조용히 넘어갈 수 있도록
+// count/error를 반환하고, 토스트 표시 여부는 호출부에서 결정한다.
+async function pullFromNotion() {
+  const NOTION_TOKEN = localStorage.getItem("NOTION_TOKEN");
+  const NOTION_DB_ID = localStorage.getItem("BUDGET_NOTION_DB_ID");
+  if (!NOTION_TOKEN || !NOTION_DB_ID) return { count: 0 };
+
+  let allPages = [];
+  try {
+    let cursor = null;
+    do {
+      const body = cursor ? { start_cursor: cursor, page_size: 100 } : { page_size: 100 };
+      const res = await fetch(WORKER_BASE + "/notion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: NOTION_TOKEN, path: `/databases/${NOTION_DB_ID}/query`, method: "POST", body })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(getApiErrorMessage(json, `Notion 응답 오류 (${res.status})`));
+      allPages.push(...(json.results || []));
+      cursor = json.has_more ? json.next_cursor : null;
+    } while (cursor);
+  } catch (e) {
+    return { count: 0, error: e.message };
+  }
+
+  const byDate = {};
+  allPages.forEach(page => {
+    const props = page.properties || {};
+    const dateStart = props["날짜"]?.date?.start;
+    const amount = props["금액"]?.number;
+    if (!dateStart || !amount) return;
+    const type = props["유형"]?.select?.name === "수입" ? "income" : "expense";
+    const category = props["카테고리"]?.select?.name || (type === "income" ? "수입" : "기타");
+    const payee = props["항목"]?.title?.[0]?.plain_text || "";
+    const method = props["결제수단"]?.select?.name || "";
+    const memo = props["메모"]?.rich_text?.[0]?.plain_text || "";
+    const dateStr = dateStart.slice(0, 10);
+    const entry = { type, category, payee, amount, method, memo, date: dateStr, time: "00:00", notionPageId: page.id };
+    if (!byDate[dateStr]) byDate[dateStr] = [];
+    byDate[dateStr].push(entry);
+  });
+
+  let importedCount = 0;
+  Object.entries(byDate).forEach(([dateStr, entries]) => {
+    const localOnly = getLogs(dateStr).filter(l => !l.notionPageId);
+    saveLogs(dateStr, [...localOnly, ...entries]);
+    importedCount += entries.length;
+  });
+
+  return { count: importedCount };
+}
+
+async function importFromNotion() {
+  const NOTION_TOKEN = localStorage.getItem("NOTION_TOKEN");
+  const NOTION_DB_ID = localStorage.getItem("BUDGET_NOTION_DB_ID");
+  if (!NOTION_TOKEN || !NOTION_DB_ID) { showToast("설정에서 Notion Token과 DB ID를 먼저 저장해주세요."); return; }
+
+  const btn = document.getElementById("import-notion-btn");
+  btn.disabled = true;
+  btn.textContent = "불러오는 중...";
+
+  const result = await pullFromNotion();
+
+  btn.disabled = false;
+  btn.textContent = "Notion에서 불러오기";
+
+  if (result.error) {
+    showToast("Notion 조회 실패: " + result.error);
+    return;
+  }
+  showToast(`Notion에서 ${result.count}건 불러왔어요.`, "success");
+  if (currentTab === "today") renderToday();
+  else if (currentTab === "calendar") renderCalendar();
+  else if (currentTab === "stats") renderStats();
 }
 
 function renderMethodSettings() {
