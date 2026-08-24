@@ -1,0 +1,18 @@
+{
+  "name": "가족카드 가계부",
+  "short_name": "가족가계부",
+  "description": "윤준님/와이프가 함께 쓰는 공유 가계부",
+  "start_url": "./family_budget.html",
+  "scope": "./",
+  "id": "./family_budget.html",
+  "display": "standalone",
+  "background_color": "#F7F7F5",
+  "theme_color": "#3A5AA8",
+  "orientation": "portrait",
+  "lang": "ko",
+  "icons": [
+    { "src": "icons-family/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons-family/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons-family/icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
