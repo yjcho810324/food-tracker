@@ -345,7 +345,7 @@
 
     <div class="card">
       <div class="section-title">카드 혜택 기준 달성 현황</div>
-      <div style="font-size:12px; color:var(--sub); margin-bottom:12px">신한 50만원 / 삼성 30만원 기준</div>
+      <div style="font-size:12px; color:var(--sub); margin-bottom:12px">신한·기업카드 50만원 / 나머지 30만원 기준</div>
       <div id="method-usage-list"></div>
     </div>
 
@@ -507,9 +507,9 @@ const USERS = ["윤준님", "혜영님"];
 const CATEGORIES = ["식비", "교통", "쇼핑", "의료", "여가", "투자/저축", "이안", "기타"];
 const CATEGORY_ICON = { "식비":"🍚", "교통":"🚗", "쇼핑":"🛍️", "의료":"🏥", "여가":"🎮", "투자/저축":"💹", "이안":"🧒", "기타":"📦", "수입":"💵" };
 const CATEGORY_COLOR = { "식비":"#E07A3A", "교통":"#3B82C4", "쇼핑":"#9B59B6", "의료":"#C0392B", "여가":"#16A085", "투자/저축":"#D4AC0D", "이안":"#E85D9E", "기타":"#888880" };
-const DEFAULT_METHODS = ["신한", "삼성"];
+const DEFAULT_METHODS = ["신한", "삼성학원", "롯데", "우리", "기업카드"];
 const DEFAULT_CARD_THRESHOLD = 300000;
-const CARD_THRESHOLD = { "신한": 500000 };
+const CARD_THRESHOLD = { "신한": 500000, "기업카드": 500000 };
 function getCardThreshold(method) { return CARD_THRESHOLD[method] || DEFAULT_CARD_THRESHOLD; }
 
 const DEFAULT_FIXED_EXPENSES = [];
