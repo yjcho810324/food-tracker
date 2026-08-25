@@ -210,7 +210,7 @@
 <div class="setup-screen" id="setup-screen">
   <div class="setup-card">
     <h1>👪 가족카드 가계부</h1>
-    <p>윤준님과 와이프가 각자 기기에서 입력하고 서로 내역을 공유해서 보는 앱이에요. 기존 개인 가계부앱과는 완전히 별개로 저장됩니다.</p>
+    <p>윤준님과 혜영님이 각자 기기에서 입력하고 서로 내역을 공유해서 보는 앱이에요. 기존 개인 가계부앱과는 완전히 별개로 저장됩니다.</p>
     <div class="hint-box">Notion 자동 저장을 쓰려면 가족카드 전용 데이터베이스가 필요해요 (선택 사항). 아래 속성으로 만들어주세요:<br>
     <b>항목</b>(제목) · <b>금액</b>(숫자) · <b>유형</b>(선택) · <b>카테고리</b>(선택) · <b>카드</b>(선택) · <b>사용자</b>(선택) · <b>메모</b>(텍스트) · <b>날짜</b>(날짜)</div>
     <div class="setup-field">
@@ -259,7 +259,7 @@
       <h2>내역 입력</h2>
       <div class="chip-row" id="user-chip-row">
         <button class="chip-btn active" data-user="윤준님" onclick="selectUser('윤준님')">윤준님</button>
-        <button class="chip-btn" data-user="와이프" onclick="selectUser('와이프')">와이프</button>
+        <button class="chip-btn" data-user="혜영님" onclick="selectUser('혜영님')">혜영님</button>
       </div>
       <div class="chip-row" id="type-chip-row">
         <button class="chip-btn type-btn expense active" data-type="expense" onclick="selectType('expense')">💸 지출</button>
@@ -460,7 +460,7 @@
     <div class="modal-title">내역 수정</div>
     <div class="chip-row" id="edit-user-chip-row">
       <button class="chip-btn active" data-user="윤준님" onclick="selectEditUser('윤준님')">윤준님</button>
-      <button class="chip-btn" data-user="와이프" onclick="selectEditUser('와이프')">와이프</button>
+      <button class="chip-btn" data-user="혜영님" onclick="selectEditUser('혜영님')">혜영님</button>
     </div>
     <div class="chip-row" id="edit-type-chip-row">
       <button class="chip-btn type-btn expense active" data-type="expense" onclick="selectEditType('expense')">💸 지출</button>
@@ -503,7 +503,7 @@
 
 <script>
 const WORKER_BASE = "https://anthropic-proxy-worker.yjcho0324.workers.dev";
-const USERS = ["윤준님", "와이프"];
+const USERS = ["윤준님", "혜영님"];
 const CATEGORIES = ["식비", "교통", "쇼핑", "의료", "여가", "투자/저축", "이안", "기타"];
 const CATEGORY_ICON = { "식비":"🍚", "교통":"🚗", "쇼핑":"🛍️", "의료":"🏥", "여가":"🎮", "투자/저축":"💹", "이안":"🧒", "기타":"📦", "수입":"💵" };
 const CATEGORY_COLOR = { "식비":"#E07A3A", "교통":"#3B82C4", "쇼핑":"#9B59B6", "의료":"#C0392B", "여가":"#16A085", "투자/저축":"#D4AC0D", "이안":"#E85D9E", "기타":"#888880" };
